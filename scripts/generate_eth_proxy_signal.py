@@ -288,6 +288,14 @@ def plot_eth_proxy_signal(df, sig_all):
                     line_width=0.7, line_color=hex_to_rgba(GREEN_LIT, 0.30),
                     layer='below', row=_row, col=1
                 )
+            # Solid green vertical lines at episode boundaries
+            for ep_date in [ep_s, ep_e]:
+                fig.add_vline(
+                    x=str(ep_date.date()),
+                    line_color=GREEN_LIT,
+                    line_width=1.2,
+                    opacity=0.5,
+                )
 
     # ── Panel 1: ETH price + model bands + signals ──
     fig.add_trace(go.Scatter(
