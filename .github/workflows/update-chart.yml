@@ -33,10 +33,13 @@ jobs:
       - name: Run ETH Stable Model Compact chart
         run: python scripts/generate_eth_stable_model_compact.py
 
+      - name: Run ETH Combined TVL chart
+        run: python scripts/generate_eth_combined_tvl.py
+
       - name: Commit and push updated charts
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add docs/eth_stacked_tvl.html docs/btc_rv7_rv30_proxy_signal.html docs/eth_stable_model_compact.html
+          git add docs/eth_stacked_tvl.html docs/btc_rv7_rv30_proxy_signal.html docs/eth_stable_model_compact.html docs/eth_combined_tvl.html
           git diff --staged --quiet || git commit -m "chore: update charts $(date -u '+%Y-%m-%d')"
           git push
