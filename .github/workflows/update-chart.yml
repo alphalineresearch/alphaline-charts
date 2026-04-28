@@ -30,6 +30,9 @@ jobs:
       - name: Run BTC RV Proxy Signal chart
         run: python scripts/generate_btc_rv_proxy_signal.py
 
+      - name: Run ETH Stable Model Compact chart
+        run: python scripts/generate_eth_stable_model_compact.py
+
       - name: Commit and push updated charts
         run: |
           git config user.name "github-actions[bot]"
