@@ -30,11 +30,6 @@ ETH_TVL_THRESHOLD  = 1_000_000
 
 LIDO_POOL_ID = '747c1d2a-c668-4682-b9f9-296708a3dd90'
 
-MERGE    = '2022-09-15'
-SHANGHAI = '2023-04-12'
-EIP4844  = '2024-03-13'
-ETH_ETF  = '2024-07-23'
-
 OUTPUT_PATH = os.path.join('docs', 'eth_combined_tvl.html')
 
 # ════════════════════════════════════════════
@@ -51,7 +46,7 @@ RED_LIT   = '#D64444'
 GREEN_LIT = '#2ABF7A'
 
 CHART_WIDTH  = 1100
-CHART_HEIGHT = 850
+CHART_HEIGHT = 920
 
 
 # ════════════════════════════════════════════
@@ -363,14 +358,6 @@ def plot_model_compact(df, r2_a):
         font=dict(family='Courier New, monospace', size=10, color=GOLD_LIT)
     )
 
-    # Event lines
-    events = [(MERGE, 'Merge', MIST), (SHANGHAI, 'Shanghai', GOLD),
-              (EIP4844, '4844', MIST), (ETH_ETF, 'ETFs', GOLD_LIT)]
-    for date, label, color in events:
-        for row in [1, 2, 3]:
-            fig.add_vline(x=date, line_color=color, line_width=1,
-                          line_dash='dot', row=row, col=1)
-
     latest = model_df.iloc[-1]
     title  = (
         f'ETH Combined TVL Model  |  '
@@ -393,7 +380,7 @@ def plot_model_compact(df, r2_a):
         showlegend=True,
         legend=dict(bgcolor='rgba(10,22,40,0.8)', bordercolor=STEEL, borderwidth=1,
                     font=dict(size=9, color=MIST), x=0.02, y=0.98),
-        margin=dict(l=60, r=80, t=70, b=60),
+        margin=dict(l=60, r=80, t=70, b=100),
         annotations=new_anns
     )
     fig.update_yaxes(type='log', tickprefix='$', title_text='ETH Price (log)', row=1, col=1)
