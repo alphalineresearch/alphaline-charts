@@ -10,6 +10,7 @@ Usage:
 """
 
 import os
+import json
 import time
 import requests
 import pandas as pd
@@ -188,7 +189,7 @@ def fetch_eth_price():
     raw.index = pd.to_datetime(raw.index).tz_localize(None)
     raw.index.name = 'date'
     eth = raw[['close']].rename(columns={'close': 'eth_price'}).dropna()
-    today = pd.Timestamp.utcnow().normalize().tz_localize(None)
+    today = pd.Timestamp.now('UTC').normalize().tz_localize(None)
     if len(eth) and eth.index[-1] >= today:
         eth = eth.iloc[:-1]
     print(f'  {len(eth)} rows | latest: ${eth["eth_price"].iloc[-1]:,.0f}')
@@ -303,8 +304,7 @@ def plot_eth_vs_stacked_tvl_ath(df):
     ), row=2, col=1)
 
     # Store raw per-series values for JS autorange listener
-    import json as _json
-    _series_data = _json.dumps({
+    _series_data = json.dumps({
         'stable': stable_b.tolist(),
         'defi':   defi_b.tolist(),
         'rwa':    rwa_b.tolist(),
@@ -373,7 +373,7 @@ def plot_eth_vs_stacked_tvl_ath(df):
     fig.update_yaxes(type='log', tickprefix='$', title_text='ETH Price (log)', row=1, col=1)
     fig.update_yaxes(tickprefix='$', ticksuffix='B', title_text='TVL ($B)', row=2, col=1)
     fig.update_xaxes(title_text='Date', row=2, col=1)
-    return fig
+    return fig, _series_data
 
 
 # ════════════════════════════════════════════
@@ -384,7 +384,7 @@ if __name__ == '__main__':
 
     print('=== Building ETH Stacked TVL chart ===')
     df  = build_dataframe()
-    fig = plot_eth_vs_stacked_tvl_ath(df)
+    fig, _series_data = plot_eth_vs_stacked_tvl_ath(df)
 
     # JS that fires on legend click and rescales yaxis2 to the visible traces
     post_script = '''
