@@ -74,8 +74,9 @@ def alphaline_layout(fig, title, height=CHART_HEIGHT,
         hoverlabel=dict(bgcolor=NAVY_MID, bordercolor=GOLD,
                         font=dict(family='Courier New, monospace', size=11, color=WHITE)),
         legend=dict(bgcolor='rgba(10,22,40,0.8)', bordercolor=STEEL, borderwidth=1,
-                    font=dict(size=9, color=MIST), x=0.01, y=0.99,
-                    xanchor='left', yanchor='top'),
+                    font=dict(size=9, color=MIST),
+                    orientation='h', x=0.5, y=1.02,
+                    xanchor='center', yanchor='bottom'),
         annotations=[
             dict(text=f'Source: {source}', xref='paper', yref='paper',
                  x=1.0, y=-0.16, xanchor='right', yanchor='top',
@@ -398,7 +399,7 @@ def plot_eth_proxy_signal(df, sig_all):
     alphaline_layout(fig, title, height=CHART_HEIGHT)
     fig.update_layout(
         showlegend=True,
-        legend=dict(x=0.01, y=0.97, xanchor='left', yanchor='top',
+        legend=dict(orientation='h', x=0.5, y=1.02, xanchor='center', yanchor='bottom',
                     font=dict(size=9, color=MIST),
                     bgcolor='rgba(10,22,40,0.85)', bordercolor=STEEL, borderwidth=1),
         margin=dict(b=150)

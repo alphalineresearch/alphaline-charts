@@ -342,7 +342,8 @@ def plot_model_compact(df, r2):
                         font=dict(family='Courier New, monospace', size=11, color=WHITE)),
         showlegend=True,
         legend=dict(bgcolor='rgba(10,22,40,0.8)', bordercolor=STEEL, borderwidth=1,
-                    font=dict(size=9, color=MIST), x=0.02, y=0.97),
+                    font=dict(size=9, color=MIST),
+                    orientation='h', x=0.5, y=1.02, xanchor='center', yanchor='bottom'),
         bargap=0,
         annotations=[
             dict(text='Source: alphalineresearch.com  |  Yahoo Finance  |  DeFiLlama',

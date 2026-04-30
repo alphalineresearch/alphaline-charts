@@ -273,9 +273,11 @@ def plot_eth_vs_stacked_tvl_ath(df):
     defi_top = stable_b + defi_b
     rwa_top  = stable_b + defi_b + rwa_b
 
+    # stackgroup handles stacking correctly within a subplot.
+    # The JS autorange listener reads customdata (raw per-series values) to rescale.
     fig.add_trace(go.Scatter(
         x=d.index, y=stable_b,
-        mode='lines', fill='tozeroy',
+        mode='lines', stackgroup='tvl2',
         fillcolor='rgba(212,168,67,0.22)',
         line=dict(color=GOLD, width=1.0),
         name='Stablecoins', showlegend=True,
@@ -284,8 +286,8 @@ def plot_eth_vs_stacked_tvl_ath(df):
     ), row=2, col=1)
 
     fig.add_trace(go.Scatter(
-        x=d.index, y=defi_top,
-        mode='lines', fill='tonexty',
+        x=d.index, y=defi_b,
+        mode='lines', stackgroup='tvl2',
         fillcolor='rgba(122,143,159,0.22)',
         line=dict(color=MIST, width=1.0),
         name='DeFi TVL', showlegend=True,
@@ -294,8 +296,8 @@ def plot_eth_vs_stacked_tvl_ath(df):
     ), row=2, col=1)
 
     fig.add_trace(go.Scatter(
-        x=d.index, y=rwa_top,
-        mode='lines', fill='tonexty',
+        x=d.index, y=rwa_b,
+        mode='lines', stackgroup='tvl2',
         fillcolor='rgba(42,191,122,0.18)',
         line=dict(color=GREEN_LIT, width=1.4),
         name='RWA TVL', showlegend=True,
@@ -364,9 +366,10 @@ def plot_eth_vs_stacked_tvl_ath(df):
     fig.update_layout(
         showlegend=True,
         legend=dict(bgcolor='rgba(10,22,40,0.8)', bordercolor=STEEL, borderwidth=1,
-                    font=dict(size=9, color=MIST), x=0.01, y=0.99,
-                    xanchor='left', yanchor='top'),
-        margin=dict(l=60, r=80, t=70, b=100),
+                    font=dict(size=9, color=MIST),
+                    orientation='h', x=0.5, y=1.02,
+                    xanchor='center', yanchor='bottom'),
+        margin=dict(l=60, r=80, t=90, b=100),
         shapes=[],
         annotations=new_anns
     )

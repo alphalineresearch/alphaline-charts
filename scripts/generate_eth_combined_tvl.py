@@ -382,8 +382,9 @@ def plot_model_compact(df, r2_a):
     fig.update_layout(
         showlegend=True,
         legend=dict(bgcolor='rgba(10,22,40,0.8)', bordercolor=STEEL, borderwidth=1,
-                    font=dict(size=9, color=MIST), x=0.01, y=0.99,
-                    xanchor='left', yanchor='top'),
+                    font=dict(size=9, color=MIST),
+                    orientation='h', x=0.5, y=1.02,
+                    xanchor='center', yanchor='bottom'),
         margin=dict(l=60, r=80, t=70, b=100),
         annotations=new_anns
     )

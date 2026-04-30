@@ -341,7 +341,7 @@ def plot_rv_proxy(df, has_cost):
         legend=dict(
             bgcolor='rgba(10,22,40,0.8)', bordercolor=STEEL, borderwidth=1,
             font=dict(size=9, color=MIST),
-            x=0.01, y=0.99, xanchor='left', yanchor='top'
+            orientation='h', x=0.5, y=1.02, xanchor='center', yanchor='bottom'
         ),
         annotations=[
             dict(text='Source: alphalineresearch.com  |  Yahoo Finance · blockchain.info',
