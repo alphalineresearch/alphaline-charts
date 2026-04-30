@@ -71,7 +71,7 @@ def alphaline_layout(fig, title, height=CHART_HEIGHT,
     fig.update_layout(
         template='plotly_dark',
         paper_bgcolor=NAVY, plot_bgcolor=NAVY_MID,
-        height=height, width=CHART_WIDTH,
+        height=height, autosize=True,
         title=dict(
             text=f'<span style="font-family:Georgia,serif; font-size:15px; color:{WHITE};">{title}</span>',
             x=0.02, xanchor='left', y=0.98, yanchor='top'
@@ -108,6 +108,10 @@ def fetch_btc_price():
     raw.index = pd.to_datetime(raw.index).tz_localize(None)
     raw.index.name = 'date'
     px = raw['close'].dropna().rename('btc_price')
+    # Drop today's incomplete candle so all charts show the same last closed day
+    today = pd.Timestamp.utcnow().normalize().tz_localize(None)
+    if len(px) and px.index[-1] >= today:
+        px = px.iloc[:-1]
     print(f'  {len(px)} rows | latest: ${px.iloc[-1]:,.0f}')
     return px
 
@@ -366,5 +370,5 @@ if __name__ == '__main__':
     df, has_cost = build_dataframe()
     fig = plot_rv_proxy(df, has_cost)
 
-    fig.write_html(OUTPUT_PATH, include_plotlyjs='cdn')
+    fig.write_html(OUTPUT_PATH, include_plotlyjs='cdn', config={'responsive': True})
     print(f'Saved: {OUTPUT_PATH}')

@@ -83,7 +83,7 @@ def alphaline_layout(fig, title, height=CHART_HEIGHT,
     fig.update_layout(
         template='plotly_dark',
         paper_bgcolor=NAVY, plot_bgcolor=NAVY_MID,
-        height=height, width=CHART_WIDTH,
+        height=height, autosize=True,
         title=dict(
             text=f'<span style="font-family:Georgia,serif; font-size:15px; color:{WHITE};">{title}</span>',
             x=0.02, xanchor='left', y=0.98, yanchor='top'
@@ -185,6 +185,9 @@ def fetch_price_data():
         btc_raw.columns = [c.lower() for c in btc_raw.columns]
     btc_raw.index = pd.to_datetime(btc_raw.index).tz_localize(None)
     btc_px = btc_raw['close'].dropna().rename('btc_price')
+    today = pd.Timestamp.utcnow().normalize().tz_localize(None)
+    if len(btc_px) and btc_px.index[-1] >= today:
+        btc_px = btc_px.iloc[:-1]
     print(f'  BTC:  {len(btc_px)} rows | latest ${btc_px.iloc[-1]:,.0f}')
 
     print('Fetching MSTR shares outstanding...')
@@ -518,5 +521,5 @@ if __name__ == '__main__':
     print('=== Building MSTR P/NAV Z-Score Heatmap + Production Cost ===')
     df, cost_series, has_cost, pnav_mu, pnav_std = build_dataframe()
     fig = plot_heatmap_chart(df, cost_series, has_cost, pnav_mu, pnav_std)
-    fig.write_html(OUTPUT_PATH, include_plotlyjs='cdn')
+    fig.write_html(OUTPUT_PATH, include_plotlyjs='cdn', config={'responsive': True})
     print(f'Saved: {OUTPUT_PATH}')

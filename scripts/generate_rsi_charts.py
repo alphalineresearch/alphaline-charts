@@ -67,7 +67,7 @@ def alphaline_layout(fig, title, height=CHART_HEIGHT,
     fig.update_layout(
         template='plotly_dark',
         paper_bgcolor=NAVY, plot_bgcolor=NAVY_MID,
-        height=height, width=CHART_WIDTH,
+        height=height, autosize=True,
         title=dict(
             text=f'<span style="font-family:Georgia,serif; font-size:15px; color:{WHITE};">{title}</span>',
             x=0.02, xanchor='left', y=0.98, yanchor='top'
@@ -451,22 +451,22 @@ if __name__ == '__main__':
 
     print('\nGenerating BTC Weekly RSI(14)...')
     fig, regime = plot_price_rsi(btc, 'BTC', GOLD, rsi_range=[20, 100])
-    fig.write_html(OUTPUT_BTC_WEEKLY, include_plotlyjs='cdn')
+    fig.write_html(OUTPUT_BTC_WEEKLY, include_plotlyjs='cdn', config={'responsive': True})
     print(f'  Saved: {OUTPUT_BTC_WEEKLY}  [{regime}]')
 
     print('Generating ETH Weekly RSI(14)...')
     fig, regime = plot_price_rsi(eth, 'ETH', MIST, rsi_range=[20, 100])
-    fig.write_html(OUTPUT_ETH_WEEKLY, include_plotlyjs='cdn')
+    fig.write_html(OUTPUT_ETH_WEEKLY, include_plotlyjs='cdn', config={'responsive': True})
     print(f'  Saved: {OUTPUT_ETH_WEEKLY}  [{regime}]')
 
     print('Generating BTC Annual RSI(52)...')
     fig, regime = plot_annual_rsi(btc, 'BTC', GOLD, rsi_range=[20, 100])
-    fig.write_html(OUTPUT_BTC_ANNUAL, include_plotlyjs='cdn')
+    fig.write_html(OUTPUT_BTC_ANNUAL, include_plotlyjs='cdn', config={'responsive': True})
     print(f'  Saved: {OUTPUT_BTC_ANNUAL}  [{regime}]')
 
     print('Generating ETH Annual RSI(52)...')
     fig, regime = plot_annual_rsi(eth, 'ETH', MIST, rsi_range=[40, 90])
-    fig.write_html(OUTPUT_ETH_ANNUAL, include_plotlyjs='cdn')
+    fig.write_html(OUTPUT_ETH_ANNUAL, include_plotlyjs='cdn', config={'responsive': True})
     print(f'  Saved: {OUTPUT_ETH_ANNUAL}  [{regime}]')
 
     print('\nDone.')

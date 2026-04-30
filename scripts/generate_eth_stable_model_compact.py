@@ -123,6 +123,9 @@ def fetch_eth_price():
     raw.index = pd.to_datetime(raw.index).tz_localize(None)
     raw.index.name = 'date'
     eth = raw.dropna()
+    today = pd.Timestamp.utcnow().normalize().tz_localize(None)
+    if len(eth) and eth.index[-1] >= today:
+        eth = eth.iloc[:-1]
     eth['mcap'] = eth['close'] * ETH_SUPPLY
     print(f'  {len(eth)} rows | latest: ${eth["close"].iloc[-1]:,.0f}')
     return eth
@@ -328,7 +331,7 @@ def plot_model_compact(df, r2):
 
     fig.update_layout(
         template='plotly_dark', paper_bgcolor=NAVY, plot_bgcolor=NAVY_MID,
-        height=CHART_HEIGHT, width=CHART_WIDTH,
+        height=CHART_HEIGHT, autosize=True,
         title=dict(
             text=f'<span style="font-family:Georgia,serif; font-size:15px; color:{WHITE};">{title}</span>',
             x=0.02, xanchor='left', y=0.98, yanchor='top'
@@ -393,5 +396,5 @@ if __name__ == '__main__':
     print(f'Model R²: {r2:.3f} | Z-score: {df["zscore"].iloc[-1]:+.2f}σ')
 
     fig = plot_model_compact(df, r2)
-    fig.write_html(OUTPUT_PATH, include_plotlyjs='cdn')
+    fig.write_html(OUTPUT_PATH, include_plotlyjs='cdn', config={'responsive': True})
     print(f'Saved: {OUTPUT_PATH}')

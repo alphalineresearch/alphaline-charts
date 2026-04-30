@@ -55,7 +55,7 @@ def alphaline_layout(fig, title, height=CHART_HEIGHT,
     fig.update_layout(
         template='plotly_dark',
         paper_bgcolor=NAVY, plot_bgcolor=NAVY_MID,
-        height=height, width=CHART_WIDTH,
+        height=height, autosize=True,
         showlegend=False,
         title=dict(
             text=f'<span style="font-family:Georgia,serif; font-size:15px; color:{WHITE};">{title}</span>',
@@ -188,6 +188,9 @@ def fetch_eth_price():
     raw.index = pd.to_datetime(raw.index).tz_localize(None)
     raw.index.name = 'date'
     eth = raw[['close']].rename(columns={'close': 'eth_price'}).dropna()
+    today = pd.Timestamp.utcnow().normalize().tz_localize(None)
+    if len(eth) and eth.index[-1] >= today:
+        eth = eth.iloc[:-1]
     print(f'  {len(eth)} rows | latest: ${eth["eth_price"].iloc[-1]:,.0f}')
     return eth
 
@@ -365,5 +368,5 @@ if __name__ == '__main__':
     df  = build_dataframe()
     fig = plot_eth_vs_stacked_tvl_ath(df)
 
-    fig.write_html(OUTPUT_PATH, include_plotlyjs='cdn')
+    fig.write_html(OUTPUT_PATH, include_plotlyjs='cdn', config={'responsive': True})
     print(f'Saved: {OUTPUT_PATH}')
