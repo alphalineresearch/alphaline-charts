@@ -55,7 +55,7 @@ def alphaline_layout(fig, title, height=CHART_HEIGHT,
     fig.update_layout(
         template='plotly_dark',
         paper_bgcolor=NAVY, plot_bgcolor=NAVY_MID,
-        height=height, autosize=True,
+        height=height, width=CHART_WIDTH,
         showlegend=False,
         title=dict(
             text=f'<span style="font-family:Georgia,serif; font-size:15px; color:{WHITE};">{title}</span>',
@@ -188,9 +188,6 @@ def fetch_eth_price():
     raw.index = pd.to_datetime(raw.index).tz_localize(None)
     raw.index.name = 'date'
     eth = raw[['close']].rename(columns={'close': 'eth_price'}).dropna()
-    today = pd.Timestamp.now('UTC').normalize().tz_localize(None)
-    if len(eth) and eth.index[-1] >= today:
-        eth = eth.iloc[:-1]
     print(f'  {len(eth)} rows | latest: ${eth["eth_price"].iloc[-1]:,.0f}')
     return eth
 
@@ -265,45 +262,33 @@ def plot_eth_vs_stacked_tvl_ath(df):
             font=dict(family='Courier New, monospace', size=9, color=GOLD_LIT)
         )
 
-    # ── Bottom panel: individual fill traces (not stackgroup) so autorange works on toggle ──
-    stable_b = d['stable_tvl_usd'] / 1e9
-    defi_b   = d['defi_tvl_usd']   / 1e9
-    rwa_b    = d['rwa_tvl_usd']    / 1e9
-    defi_top = stable_b + defi_b
-    rwa_top  = stable_b + defi_b + rwa_b
-
-    # stackgroup handles stacking correctly within a subplot.
-    # The JS autorange listener reads customdata (raw per-series values) to rescale.
+    # ── Bottom panel: stacked TVL areas ──
     fig.add_trace(go.Scatter(
-        x=d.index, y=stable_b,
-        mode='lines', stackgroup='tvl2',
+        x=d.index, y=d['stable_tvl_usd'] / 1e9,
+        mode='lines', stackgroup='tvl',
         fillcolor='rgba(212,168,67,0.22)',
         line=dict(color=GOLD, width=1.0),
         name='Stablecoins', showlegend=True,
-        customdata=stable_b,
-        hovertemplate='%{x|%Y-%m-%d}<br>Stablecoins: $%{customdata:.1f}B<extra></extra>'
+        hovertemplate='%{x|%Y-%m-%d}<br>Stablecoins: $%{y:.1f}B<extra></extra>'
     ), row=2, col=1)
 
     fig.add_trace(go.Scatter(
-        x=d.index, y=defi_b,
-        mode='lines', stackgroup='tvl2',
+        x=d.index, y=d['defi_tvl_usd'] / 1e9,
+        mode='lines', stackgroup='tvl',
         fillcolor='rgba(122,143,159,0.22)',
         line=dict(color=MIST, width=1.0),
         name='DeFi TVL', showlegend=True,
-        customdata=defi_b,
-        hovertemplate='%{x|%Y-%m-%d}<br>DeFi: $%{customdata:.1f}B<extra></extra>'
+        hovertemplate='%{x|%Y-%m-%d}<br>DeFi: $%{y:.1f}B<extra></extra>'
     ), row=2, col=1)
 
     fig.add_trace(go.Scatter(
-        x=d.index, y=rwa_b,
-        mode='lines', stackgroup='tvl2',
+        x=d.index, y=d['rwa_tvl_usd'] / 1e9,
+        mode='lines', stackgroup='tvl',
         fillcolor='rgba(42,191,122,0.18)',
         line=dict(color=GREEN_LIT, width=1.4),
         name='RWA TVL', showlegend=True,
-        customdata=rwa_b,
-        hovertemplate='%{x|%Y-%m-%d}<br>RWA: $%{customdata:.1f}B<extra></extra>'
+        hovertemplate='%{x|%Y-%m-%d}<br>RWA: $%{y:.1f}B<extra></extra>'
     ), row=2, col=1)
-
 
     # Combined TVL rolling ATH dotted line
     fig.add_trace(go.Scatter(
@@ -359,10 +344,8 @@ def plot_eth_vs_stacked_tvl_ath(df):
     fig.update_layout(
         showlegend=True,
         legend=dict(bgcolor='rgba(10,22,40,0.8)', bordercolor=STEEL, borderwidth=1,
-                    font=dict(size=9, color=MIST),
-                    orientation='h', x=0.5, y=1.02,
-                    xanchor='center', yanchor='bottom'),
-        margin=dict(l=60, r=80, t=90, b=100),
+                    font=dict(size=9, color=MIST), x=0.02, y=0.98),
+        margin=dict(l=60, r=80, t=70, b=100),
         shapes=[],
         annotations=new_anns
     )
@@ -382,5 +365,5 @@ if __name__ == '__main__':
     df  = build_dataframe()
     fig = plot_eth_vs_stacked_tvl_ath(df)
 
-    fig.write_html(OUTPUT_PATH, include_plotlyjs='cdn', config={'responsive': True})
+    fig.write_html(OUTPUT_PATH, include_plotlyjs='cdn')
     print(f'Saved: {OUTPUT_PATH}')
