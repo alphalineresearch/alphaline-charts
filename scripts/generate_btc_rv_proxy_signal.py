@@ -77,7 +77,7 @@ def alphaline_layout(fig, title, height=CHART_HEIGHT,
             x=0.02, xanchor='left', y=0.98, yanchor='top'
         ),
         font=dict(family='Courier New, monospace', color=MIST, size=10),
-        margin=dict(l=55, r=38, t=60, b=155),
+        margin=dict(l=55, r=100, t=60, b=155),
         xaxis=dict(gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5, zeroline=False,
                    showspikes=True, spikecolor=MIST, spikethickness=1, spikedash='dot'),
         yaxis=dict(gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5, zeroline=False),
@@ -341,7 +341,7 @@ def plot_rv_proxy(df, has_cost):
         legend=dict(
             bgcolor='rgba(10,22,40,0.8)', bordercolor=STEEL, borderwidth=1,
             font=dict(size=9, color=MIST),
-            x=0.01, y=0.49, xanchor='left', yanchor='top'
+            x=0.01, y=0.99, xanchor='left', yanchor='top'
         ),
         annotations=[
             dict(text='Source: alphalineresearch.com  |  Yahoo Finance · blockchain.info',
