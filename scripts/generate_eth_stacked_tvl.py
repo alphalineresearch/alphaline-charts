@@ -265,33 +265,50 @@ def plot_eth_vs_stacked_tvl_ath(df):
             font=dict(family='Courier New, monospace', size=9, color=GOLD_LIT)
         )
 
-    # ── Bottom panel: stacked TVL areas ──
+    # ── Bottom panel: individual fill traces (not stackgroup) so autorange works on toggle ──
+    stable_b = d['stable_tvl_usd'] / 1e9
+    defi_b   = d['defi_tvl_usd']   / 1e9
+    rwa_b    = d['rwa_tvl_usd']    / 1e9
+    defi_top = stable_b + defi_b
+    rwa_top  = stable_b + defi_b + rwa_b
+
     fig.add_trace(go.Scatter(
-        x=d.index, y=d['stable_tvl_usd'] / 1e9,
-        mode='lines', stackgroup='tvl',
+        x=d.index, y=stable_b,
+        mode='lines', fill='tozeroy',
         fillcolor='rgba(212,168,67,0.22)',
         line=dict(color=GOLD, width=1.0),
         name='Stablecoins', showlegend=True,
-        hovertemplate='%{x|%Y-%m-%d}<br>Stablecoins: $%{y:.1f}B<extra></extra>'
+        customdata=stable_b,
+        hovertemplate='%{x|%Y-%m-%d}<br>Stablecoins: $%{customdata:.1f}B<extra></extra>'
     ), row=2, col=1)
 
     fig.add_trace(go.Scatter(
-        x=d.index, y=d['defi_tvl_usd'] / 1e9,
-        mode='lines', stackgroup='tvl',
+        x=d.index, y=defi_top,
+        mode='lines', fill='tonexty',
         fillcolor='rgba(122,143,159,0.22)',
         line=dict(color=MIST, width=1.0),
         name='DeFi TVL', showlegend=True,
-        hovertemplate='%{x|%Y-%m-%d}<br>DeFi: $%{y:.1f}B<extra></extra>'
+        customdata=defi_b,
+        hovertemplate='%{x|%Y-%m-%d}<br>DeFi: $%{customdata:.1f}B<extra></extra>'
     ), row=2, col=1)
 
     fig.add_trace(go.Scatter(
-        x=d.index, y=d['rwa_tvl_usd'] / 1e9,
-        mode='lines', stackgroup='tvl',
+        x=d.index, y=rwa_top,
+        mode='lines', fill='tonexty',
         fillcolor='rgba(42,191,122,0.18)',
         line=dict(color=GREEN_LIT, width=1.4),
         name='RWA TVL', showlegend=True,
-        hovertemplate='%{x|%Y-%m-%d}<br>RWA: $%{y:.1f}B<extra></extra>'
+        customdata=rwa_b,
+        hovertemplate='%{x|%Y-%m-%d}<br>RWA: $%{customdata:.1f}B<extra></extra>'
     ), row=2, col=1)
+
+    # Store raw per-series values for JS autorange listener
+    import json as _json
+    _series_data = _json.dumps({
+        'stable': stable_b.tolist(),
+        'defi':   defi_b.tolist(),
+        'rwa':    rwa_b.tolist(),
+    })
 
     # Combined TVL rolling ATH dotted line
     fig.add_trace(go.Scatter(
@@ -369,5 +386,68 @@ if __name__ == '__main__':
     df  = build_dataframe()
     fig = plot_eth_vs_stacked_tvl_ath(df)
 
-    fig.write_html(OUTPUT_PATH, include_plotlyjs='cdn', config={'responsive': True})
+    # JS that fires on legend click and rescales yaxis2 to the visible traces
+    post_script = '''
+<script>
+(function() {
+  var attempts = 0;
+  var interval = setInterval(function() {
+    attempts++;
+    var gdDiv = document.querySelector('.plotly-graph-div');
+    if (!gdDiv || !gdDiv._fullData || attempts > 40) { clearInterval(interval); return; }
+    clearInterval(interval);
+
+    // Map legend names -> which raw series to include in the max calc
+    // Trace indices in panel 2: 2=Stablecoins, 3=DeFi, 4=RWA, 5=ATH
+    var seriesData = %%SERIES_DATA%%;
+
+    gdDiv.on('plotly_legendclick', function(data) {
+      // legendclick fires BEFORE visibility toggles, so we defer one tick
+      setTimeout(function() {
+        var traces = gdDiv._fullData;
+        var visibleMax = 0;
+
+        // Check each TVL trace by name and accumulate if visible
+        var stableVis = false, defiVis = false, rwaVis = false;
+        traces.forEach(function(t) {
+          if (t.visible === true || t.visible === undefined) {
+            if (t.name === 'Stablecoins')     stableVis = true;
+            if (t.name === 'DeFi TVL')        defiVis   = true;
+            if (t.name === 'RWA TVL')         rwaVis    = true;
+          }
+        });
+
+        // Build the stacked top values for visible traces only
+        var n = seriesData.stable.length;
+        for (var i = 0; i < n; i++) {
+          var top = 0;
+          if (stableVis) top += seriesData.stable[i];
+          if (defiVis)   top += seriesData.defi[i];
+          if (rwaVis)    top += seriesData.rwa[i];
+          if (top > visibleMax) visibleMax = top;
+        }
+
+        // Also check ATH line if visible
+        var athVis = traces.some(function(t) {
+          return t.name === 'Total Secured ATH' && (t.visible === true || t.visible === undefined);
+        });
+        if (athVis) {
+          var athMax = Math.max.apply(null, (gdDiv._fullData.find(function(t){ return t.name === 'Total Secured ATH'; }) || {y:[]}).y || []);
+          if (athMax > visibleMax) visibleMax = athMax;
+        }
+
+        if (visibleMax > 0) {
+          Plotly.relayout(gdDiv, { 'yaxis2.range': [0, visibleMax * 1.08], 'yaxis2.autorange': false });
+        } else {
+          Plotly.relayout(gdDiv, { 'yaxis2.autorange': true });
+        }
+      }, 50);
+    });
+  }, 150);
+})();
+</script>
+'''
+    post_script = post_script.replace('%%SERIES_DATA%%', _series_data)
+    fig.write_html(OUTPUT_PATH, include_plotlyjs='cdn', config={'responsive': True},
+                   post_script=post_script)
     print(f'Saved: {OUTPUT_PATH}')
