@@ -45,11 +45,14 @@ jobs:
       - name: Run RSI Charts
         run: python scripts/generate_rsi_charts.py
 
+      - name: Run ETH TVL Momentum
+        run: python scripts/generate_eth_tvl_momentum.py
+
       - name: Commit and push updated charts
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add docs/eth_stacked_tvl.html docs/btc_rv7_rv30_proxy_signal.html docs/eth_stable_model_compact.html docs/eth_combined_tvl.html docs/eth_proxy_signal.html docs/mstr_pnav_heatmap.html docs/btc_rsi_weekly.html docs/eth_rsi_weekly.html docs/btc_rsi_annual.html docs/eth_rsi_annual.html
+          git add docs/eth_stacked_tvl.html docs/btc_rv7_rv30_proxy_signal.html docs/eth_stable_model_compact.html docs/eth_combined_tvl.html docs/eth_proxy_signal.html docs/mstr_pnav_heatmap.html docs/btc_rsi_weekly.html docs/eth_rsi_weekly.html docs/btc_rsi_annual.html docs/eth_rsi_annual.html docs/eth_tvl_momentum.html
           git diff --staged --quiet || git commit -m "chore: update charts $(date -u '+%Y-%m-%d')"
           git pull --rebase
           git push
