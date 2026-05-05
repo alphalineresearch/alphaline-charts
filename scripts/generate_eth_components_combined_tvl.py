@@ -8,7 +8,7 @@ Data sources (no API keys required):
   - DeFiLlama protocols   : api.llama.fi/protocols  (RWA protocol list + per-slug TVL)
   - Yahoo Finance         : ETH-USD daily close via yfinance
 
-Writes docs/eth_combined_tvl.html
+Writes docs/eth_combined_components_tvl.html
 
 Usage:
     python generate_eth_combined_tvl.py
@@ -26,7 +26,7 @@ import yfinance as yf
 # ─────────────────────────────────────────────
 # CONFIG
 # ─────────────────────────────────────────────
-OUTPUT_PATH       = os.path.join('docs', 'eth_combined_tvl.html')
+OUTPUT_PATH       = os.path.join('docs', 'eth_combined_components_tvl.html')
 LOOKBACK          = 30
 ETH_SUPPLY        = 120_000_000
 ETH_TVL_THRESHOLD = 1_000_000    # min $1M Ethereum TVL for RWA protocols
