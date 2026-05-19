@@ -1,70 +1,55 @@
 """
-generate_eth_tvl_momentum.py
-Alphaline Research — ETH Price + Total Value Locked Momentum (Past 30 Days)
+generate_eth_stacked_tvl.py
+Alphaline Research — ETH Price + Stacked TVL (with rolling ATH lines)
 
-Data sources (no API keys required):
-  - DeFiLlama stablecoins: stablecoins.llama.fi/stablecoincharts/Ethereum
-  - DeFiLlama chain TVL:   api.llama.fi/v2/historicalChainTvl/Ethereum
-  - DeFiLlama protocols:   api.llama.fi/protocols  (RWA aggregation)
-  - Yahoo Finance:          ETH-USD daily close via yfinance
-
-Writes docs/eth_tvl_momentum.html
+Fetches data from DeFiLlama + Yahoo Finance (no API keys required),
+builds the combined TVL series, and writes eth_stacked_tvl.html to docs/.
 
 Usage:
-    python generate_eth_tvl_momentum.py
+    python generate_eth_stacked_tvl.py
 """
 
 import os
 import time
-
-import numpy as np
+import requests
 import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-import requests
 import yfinance as yf
-
-# ════════════════════════════════════════════
-# OUTPUT
-# ════════════════════════════════════════════
-OUTPUT_PATH = os.path.join('docs', 'eth_tvl_momentum.html')
 
 # ════════════════════════════════════════════
 # CONFIG
 # ════════════════════════════════════════════
 ETH_SUPPLY        = 120_000_000
 ETH_TVL_THRESHOLD = 1_000_000    # min $1M on Ethereum for RWA protocols
-LOOKBACK          = 30           # days
+
+BEACON_CHAIN = '2020-12-01'
+MERGE        = '2022-09-15'
+SHANGHAI     = '2023-04-12'
+EIP4844      = '2024-03-13'
+ETH_ETF      = '2024-07-23'
+
+OUTPUT_PATH = os.path.join('docs', 'eth_stacked_tvl.html')
 
 # ════════════════════════════════════════════
-# BRAND COLORS
+# ALPHALINE BRAND COLORS
 # ════════════════════════════════════════════
 NAVY      = '#0A1628'
 NAVY_MID  = '#102240'
-NAVY_LIT  = '#1A3A6E'
 GOLD      = '#D4A843'
 GOLD_LIT  = '#ECC96A'
-GOLD_DIM  = '#8A6B25'
 WHITE     = '#F8FAFB'
 MIST      = '#7A8F9F'
 STEEL     = '#374D61'
-GREEN     = '#1A8A5A'
-RED       = '#8A1A1A'
 GREEN_LIT = '#2ABF7A'
-RED_LIT   = '#D64444'
 
 CHART_WIDTH  = 1100
 CHART_HEIGHT = 750
 
 
 # ════════════════════════════════════════════
-# HELPERS
+# ALPHALINE CHART TEMPLATE
 # ════════════════════════════════════════════
-def hex_to_rgba(h, a=0.35):
-    h = h.lstrip('#')
-    return f'rgba({int(h[0:2],16)},{int(h[2:4],16)},{int(h[4:6],16)},{a})'
-
-
 def alphaline_layout(fig, title, height=CHART_HEIGHT,
                      source='alphalineresearch.com  |  Yahoo Finance  |  DeFiLlama'):
     fig.update_layout(
@@ -77,7 +62,7 @@ def alphaline_layout(fig, title, height=CHART_HEIGHT,
             x=0.02, xanchor='left', y=0.98, yanchor='top'
         ),
         font=dict(family='Courier New, monospace', color=MIST, size=10),
-        margin=dict(l=60, r=80, t=70, b=110),
+        margin=dict(l=60, r=80, t=65, b=80),
         xaxis=dict(gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5, zeroline=False,
                    showspikes=True, spikecolor=MIST, spikethickness=1, spikedash='dot'),
         xaxis2=dict(gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5, zeroline=False),
@@ -87,28 +72,20 @@ def alphaline_layout(fig, title, height=CHART_HEIGHT,
                         font=dict(family='Courier New, monospace', size=11, color=WHITE)),
         annotations=[
             dict(text=f'Source: {source}', xref='paper', yref='paper',
-                 x=1.0, y=-0.16, xanchor='right', yanchor='top',
-                 font=dict(family='Courier New, monospace', size=10, color=MIST), showarrow=False),
+                 x=1.0, y=-0.09, xanchor='right', yanchor='top',
+                 font=dict(family='Courier New, monospace', size=9, color=MIST), showarrow=False),
             dict(text='<b>ALPHALINE RESEARCH</b>', xref='paper', yref='paper',
-                 x=0.07, y=-0.16, xanchor='left', yanchor='top',
-                 font=dict(family='Courier New, monospace', size=10, color=GOLD), showarrow=False),
+                 x=0.0, y=-0.09, xanchor='left', yanchor='top',
+                 font=dict(family='Courier New, monospace', size=9, color=GOLD), showarrow=False),
         ],
-        shapes=[
-            dict(type='line', xref='paper', yref='paper', x0=0.010, y0=-0.21, x1=0.018, y1=-0.175,
-                 line=dict(color=WHITE, width=2.0), layer='above'),
-            dict(type='line', xref='paper', yref='paper', x0=0.018, y0=-0.175, x1=0.026, y1=-0.21,
-                 line=dict(color=WHITE, width=2.0), layer='above'),
-            dict(type='line', xref='paper', yref='paper', x0=0.012, y0=-0.194, x1=0.024, y1=-0.194,
-                 line=dict(color=WHITE, width=1.4), layer='above'),
-            dict(type='rect', xref='paper', yref='paper', x0=0.016, y0=-0.174, x1=0.020, y1=-0.166,
-                 fillcolor=GOLD, line_width=0, layer='above'),
-        ]
     )
     return fig
 
 
+# ════════════════════════════════════════════
+# HTTP HELPER
+# ════════════════════════════════════════════
 def _get(url, timeout=90, retries=3):
-    """requests.get with retry + increasing timeout. DeFiLlama can be slow."""
     for attempt in range(retries):
         try:
             resp = requests.get(url, timeout=timeout)
@@ -125,9 +102,9 @@ def _get(url, timeout=90, retries=3):
 
 # ════════════════════════════════════════════
 # DATA FETCHERS
+# All DeFiLlama — no API key required
 # ════════════════════════════════════════════
 def fetch_stablecoin_tvl():
-    """DeFiLlama: daily stablecoin supply on Ethereum."""
     print('Fetching stablecoin TVL...')
     resp = _get('https://stablecoins.llama.fi/stablecoincharts/Ethereum')
     rows = []
@@ -135,27 +112,24 @@ def fetch_stablecoin_tvl():
         ts  = pd.Timestamp(int(entry['date']), unit='s').normalize()
         usd = entry.get('totalCirculatingUSD', {}).get('peggedUSD', 0)
         rows.append({'date': ts, 'stable_tvl_usd': float(usd)})
-    df_s = pd.DataFrame(rows).set_index('date').sort_index()
-    df_s = df_s.iloc[:-1]
-    print(f'  {len(df_s)} rows | latest: ${df_s["stable_tvl_usd"].iloc[-1]/1e9:.2f}B')
-    return df_s
+    df = pd.DataFrame(rows).set_index('date').sort_index().iloc[:-1]
+    print(f'  {len(df)} rows | latest: ${df["stable_tvl_usd"].iloc[-1]/1e9:.2f}B')
+    return df
 
 
 def fetch_defi_tvl():
-    """DeFiLlama: daily total DeFi TVL on Ethereum mainnet."""
     print('Fetching Ethereum DeFi TVL...')
     r = _get('https://api.llama.fi/v2/historicalChainTvl/Ethereum')
     rows = [{'date': pd.Timestamp(int(e['date']), unit='s').normalize(),
-              'defi_tvl_usd': float(e['tvl'])} for e in r.json()]
-    df_d = pd.DataFrame(rows).set_index('date').sort_index()
-    df_d.index = pd.to_datetime(df_d.index).tz_localize(None)
-    df_d = df_d.iloc[:-1]
-    print(f'  {len(df_d)} rows | latest: ${df_d["defi_tvl_usd"].iloc[-1]/1e9:.2f}B')
-    return df_d
+             'defi_tvl_usd': float(e['tvl'])} for e in r.json()]
+    df = pd.DataFrame(rows).set_index('date').sort_index()
+    df.index = pd.to_datetime(df.index).tz_localize(None)
+    df = df.iloc[:-1]
+    print(f'  {len(df)} rows | latest: ${df["defi_tvl_usd"].iloc[-1]/1e9:.2f}B')
+    return df
 
 
 def fetch_rwa_tvl():
-    """DeFiLlama: aggregate RWA TVL on Ethereum across all tracked protocols."""
     print('Fetching RWA protocol list...')
     r = _get('https://api.llama.fi/protocols')
     protocols = r.json()
@@ -189,14 +163,12 @@ def fetch_rwa_tvl():
     rwa_df = pd.DataFrame(all_series)
     rwa_df.index = pd.to_datetime(rwa_df.index).normalize()
     rwa_daily = rwa_df.resample('D').last().ffill()
-    rwa_total = rwa_daily.sum(axis=1).to_frame(name='rwa_tvl_usd')
-    rwa_total = rwa_total.iloc[:-1]
+    rwa_total = rwa_daily.sum(axis=1).to_frame(name='rwa_tvl_usd').iloc[:-1]
     print(f'  {len(rwa_total)} rows | latest: ${rwa_total["rwa_tvl_usd"].iloc[-1]/1e9:.3f}B')
     return rwa_total
 
 
 def fetch_eth_price():
-    """Yahoo Finance: ETH-USD daily close."""
     print('Fetching ETH price...')
     raw = yf.download('ETH-USD', period='max', interval='1d', progress=False)
     if isinstance(raw.columns, pd.MultiIndex):
@@ -211,131 +183,158 @@ def fetch_eth_price():
 
 
 # ════════════════════════════════════════════
-# BUILD DATAFRAME
+# MERGE + COMPUTE COMBINED TVL
 # ════════════════════════════════════════════
 def build_dataframe():
-    stable_daily = fetch_stablecoin_tvl()
-    defi_daily   = fetch_defi_tvl()
-    rwa_daily    = fetch_rwa_tvl()
-    eth          = fetch_eth_price()
+    stable = fetch_stablecoin_tvl()
+    defi   = fetch_defi_tvl()
+    rwa    = fetch_rwa_tvl()
+    eth    = fetch_eth_price()
 
-    df = stable_daily.copy()
-    df = df.join(defi_daily, how='left')
-    df = df.join(rwa_daily,  how='left')
+    df = stable.copy()
+    df = df.join(defi, how='left')
+    df = df.join(rwa,  how='left')
     df = df.join(eth[['eth_price']], how='left')
     df = df.dropna(subset=['eth_price'])
 
     df['defi_tvl_usd'] = df['defi_tvl_usd'].ffill().fillna(0)
     df['rwa_tvl_usd']  = df['rwa_tvl_usd'].ffill().fillna(0)
-
     df['total_secured_usd'] = df['stable_tvl_usd'] + df['defi_tvl_usd'] + df['rwa_tvl_usd']
 
-    latest = df.iloc[-1]
-    print(f'\nMerged: {len(df)} rows | {df.index[0].date()} → {df.index[-1].date()}')
-    print(f'  ETH Price:      ${latest["eth_price"]:,.0f}')
-    print(f'  Total TVL:      ${latest["total_secured_usd"]/1e9:.2f}B')
     return df
 
 
 # ════════════════════════════════════════════
-# CHART — verbatim from notebook
+# CHART — ETH PRICE + STACKED TVL WITH ROLLING ATH LINES
 # ════════════════════════════════════════════
-def plot_tvl_momentum(df, lookback=30):
-    d = df.dropna(subset=['eth_price', 'total_secured_usd']).copy()
+def plot_eth_vs_stacked_tvl_ath(df):
+    d = df.dropna(subset=['eth_price', 'stable_tvl_usd']).copy()
+    d = d[d['total_secured_usd'] > 1e9]
     d['defi_tvl_usd'] = d['defi_tvl_usd'].fillna(0)
     d['rwa_tvl_usd']  = d['rwa_tvl_usd'].fillna(0)
-    d = d.tail(lookback + 1)
 
-    d['total_pct_chg'] = d['total_secured_usd'].pct_change() * 100
-    d['tvl_cum_ret']   = ((1 + d['total_pct_chg'] / 100).cumprod() - 1) * 100
-    d = d.iloc[1:]
+    # Rolling ATH (cumulative max)
+    d['eth_ath']   = d['eth_price'].cummax()
+    d['total_ath'] = d['total_secured_usd'].cummax()
 
     fig = make_subplots(
-        rows=3, cols=1, shared_xaxes=True,
-        row_heights=[0.38, 0.33, 0.29],
-        vertical_spacing=0.025
+        rows=2, cols=1, shared_xaxes=True,
+        row_heights=[0.50, 0.50],
+        vertical_spacing=0.04
     )
 
-    # ── Panel 1: ETH price ──
+    # ── Top panel: ETH price (log) ──
     fig.add_trace(go.Scatter(
         x=d.index, y=d['eth_price'],
-        mode='lines', line=dict(color=GOLD, width=2.0),
+        mode='lines', line=dict(color=GOLD, width=1.8),
         name='ETH Price', showlegend=True,
         hovertemplate='%{x|%Y-%m-%d}<br>ETH: $%{y:,.0f}<extra></extra>'
     ), row=1, col=1)
 
-    # ── Panel 2: daily TVL % change bars (green/red) ──
-    bar_colors = [GREEN_LIT if v >= 0 else RED_LIT for v in d['total_pct_chg']]
-    fig.add_trace(go.Bar(
-        x=d.index, y=d['total_pct_chg'],
-        name='Daily TVL \u0394%', showlegend=True,
-        marker_color=bar_colors,
-        marker_line=dict(width=0),
-        hovertemplate='%{x|%Y-%m-%d}<br>Daily \u0394: %{y:+.3f}%<extra></extra>'
-    ), row=2, col=1)
-    fig.add_hline(y=0, line_color=WHITE, line_width=0.6,
-                  opacity=0.25, row=2, col=1)
+    fig.add_trace(go.Scatter(
+        x=d.index, y=d['eth_ath'],
+        mode='lines', line=dict(color=GOLD_LIT, width=1.2, dash='dot'),
+        name='ETH Rolling ATH', showlegend=True,
+        hovertemplate='%{x|%Y-%m-%d}<br>ETH ATH: $%{y:,.0f}<extra></extra>'
+    ), row=1, col=1)
 
-    # ── Panel 3: cumulative TVL return ──
-    cum_final  = d['tvl_cum_ret'].iloc[-1]
-    cum_color  = GREEN_LIT if cum_final >= 0 else RED_LIT
-    fill_color = hex_to_rgba(cum_color, 0.10)
+    latest = d.iloc[-1]
+    fig.add_annotation(
+        x=d.index[-1], y=latest['eth_price'],
+        text=f'  ${latest["eth_price"]:,.0f}',
+        showarrow=False, xanchor='left',
+        font=dict(family='Courier New, monospace', size=10, color=GOLD)
+    )
+    if latest['eth_price'] >= latest['eth_ath'] * 0.999:
+        fig.add_annotation(
+            x=d.index[-1], y=latest['eth_ath'],
+            text='  ▲ ATH', showarrow=False, xanchor='left',
+            font=dict(family='Courier New, monospace', size=9, color=GOLD_LIT)
+        )
+
+    # ── Bottom panel: stacked TVL areas ──
+    fig.add_trace(go.Scatter(
+        x=d.index, y=d['stable_tvl_usd'] / 1e9,
+        mode='lines', stackgroup='tvl',
+        fillcolor='rgba(212,168,67,0.22)',
+        line=dict(color=GOLD, width=1.0),
+        name='Stablecoins', showlegend=True,
+        hovertemplate='%{x|%Y-%m-%d}<br>Stablecoins: $%{y:.1f}B<extra></extra>'
+    ), row=2, col=1)
 
     fig.add_trace(go.Scatter(
-        x=d.index, y=d['tvl_cum_ret'],
-        mode='lines', line=dict(color=cum_color, width=1.8),
-        fill='tozeroy', fillcolor=fill_color,
-        name='Cumul. TVL Ret.', showlegend=True,
-        hovertemplate='%{x|%Y-%m-%d}<br>Cumul.: %{y:+.2f}%<extra></extra>'
-    ), row=3, col=1)
-    fig.add_hline(y=0, line_color=WHITE, line_width=0.6,
-                  opacity=0.25, row=3, col=1)
+        x=d.index, y=d['defi_tvl_usd'] / 1e9,
+        mode='lines', stackgroup='tvl',
+        fillcolor='rgba(122,143,159,0.22)',
+        line=dict(color=MIST, width=1.0),
+        name='DeFi TVL', showlegend=True,
+        hovertemplate='%{x|%Y-%m-%d}<br>DeFi: $%{y:.1f}B<extra></extra>'
+    ), row=2, col=1)
 
-    latest_tvl = d['total_secured_usd'].iloc[-1]
-    alphaline_layout(
-        fig,
-        f'ETH PRICE  +  TOTAL VALUE LOCKED MOMENTUM  |  PAST 30 DAYS'
-        f'  \u2014  Total TVL: ${latest_tvl/1e9:.1f}B',
-        height=700
-    )
+    fig.add_trace(go.Scatter(
+        x=d.index, y=d['rwa_tvl_usd'] / 1e9,
+        mode='lines', stackgroup='tvl',
+        fillcolor='rgba(42,191,122,0.18)',
+        line=dict(color=GREEN_LIT, width=1.4),
+        name='RWA TVL', showlegend=True,
+        hovertemplate='%{x|%Y-%m-%d}<br>RWA: $%{y:.1f}B<extra></extra>'
+    ), row=2, col=1)
 
-    # Annotations added AFTER alphaline_layout so they are not overwritten
-    latest_eth  = d['eth_price'].iloc[-1]
-    eth_30d_ret = (d['eth_price'].iloc[-1] / d['eth_price'].iloc[0] - 1) * 100
-    ret_color   = GREEN_LIT if eth_30d_ret >= 0 else RED_LIT
-    fig.add_annotation(
-        x=d.index[-1], y=latest_eth,
-        xref='x', yref='y',
-        text=f'  ${latest_eth:,.0f}  ({eth_30d_ret:+.1f}% 30d)',
-        showarrow=False, xanchor='left',
-        font=dict(family='Courier New, monospace', size=10, color=ret_color)
-    )
-    fig.add_annotation(
-        x=d.index[-1], y=cum_final,
-        xref='x', yref='y3',
-        text=f'  TVL  {cum_final:+.1f}% (30d)',
-        showarrow=False, xanchor='left',
-        font=dict(family='Courier New, monospace', size=10, color=cum_color)
-    )
+    # Combined TVL rolling ATH dotted line
+    fig.add_trace(go.Scatter(
+        x=d.index, y=d['total_ath'] / 1e9,
+        mode='lines', line=dict(color=WHITE, width=1.2, dash='dot'),
+        name='Total Secured ATH', showlegend=True,
+        hovertemplate='%{x|%Y-%m-%d}<br>Total ATH: $%{y:.1f}B<extra></extra>'
+    ), row=2, col=1)
 
-    # Remove chevron shapes only; keep ALPHALINE RESEARCH text
-    fig.layout.shapes = []
+    # Annotations on bottom panel
+    for val, color, label in [
+        (latest['stable_tvl_usd'] / 2 / 1e9,                              GOLD,      f'Stablecoins  ${latest["stable_tvl_usd"]/1e9:.0f}B'),
+        ((latest['stable_tvl_usd'] + latest['defi_tvl_usd'] / 2) / 1e9,  MIST,      f'DeFi  ${latest["defi_tvl_usd"]/1e9:.0f}B'),
+        (latest['total_secured_usd'] / 1e9,                                GREEN_LIT, f'Total  ${latest["total_secured_usd"]/1e9:.0f}B'),
+    ]:
+        fig.add_annotation(
+            x=d.index[-1], y=val, text=f'  {label}',
+            showarrow=False, xanchor='left',
+            font=dict(family='Courier New, monospace', size=9, color=color)
+        )
+
+    # Event lines
+    events = [
+        (BEACON_CHAIN, 'Beacon',   STEEL),
+        (MERGE,        'Merge',    MIST),
+        (SHANGHAI,     'Shanghai', GOLD),
+        (EIP4844,      '4844',     MIST),
+        (ETH_ETF,      'ETFs',     GOLD_LIT),
+    ]
+    for date, label, evt_color in events:
+        for row in [1, 2]:
+            fig.add_vline(x=date, line_color=evt_color, line_width=1,
+                          line_dash='dot', row=row, col=1)
+        fig.add_annotation(x=date, y=1.01, xref='x', yref='paper',
+            text=label, showarrow=False,
+            font=dict(size=8, color=evt_color), xanchor='left')
+
+    title = (
+        f'ETH Price + Stacked TVL — Rolling All-Time Highs  |  '
+        f'ETH: ${latest["eth_price"]:,.0f}  |  '
+        f'Total Secured: ${latest["total_secured_usd"]/1e9:.0f}B'
+    )
+    alphaline_layout(fig, title, height=CHART_HEIGHT)
 
     fig.update_layout(
         showlegend=True,
-        legend=dict(
-            orientation='h', yanchor='bottom', y=1.01,
-            xanchor='left', x=0,
-            font=dict(family='Courier New, monospace', size=9, color=MIST),
-            bgcolor='rgba(0,0,0,0)'
-        )
+        legend=dict(bgcolor='rgba(10,22,40,0.8)', bordercolor=STEEL, borderwidth=1,
+                    font=dict(size=9, color=MIST),
+                    orientation='h', x=0.5, y=1.02,
+                    xanchor='center', yanchor='bottom'),
+        margin=dict(l=60, r=80, t=65, b=80),
+        shapes=[],
     )
-    fig.update_yaxes(title_text='ETH Price ($)',
-                     title_font=dict(size=9, color=MIST), row=1, col=1)
-    fig.update_yaxes(title_text='Daily TVL \u0394%',
-                     title_font=dict(size=9, color=MIST), row=2, col=1)
-    fig.update_yaxes(title_text='Cumul. TVL Return %',
-                     title_font=dict(size=9, color=MIST), row=3, col=1)
+    fig.update_yaxes(type='log', tickprefix='$', title_text='ETH Price (log)', row=1, col=1)
+    fig.update_yaxes(tickprefix='$', ticksuffix='B', title_text='TVL ($B)', row=2, col=1)
+    fig.update_xaxes(title_text='Date', row=2, col=1)
     return fig
 
 
@@ -344,8 +343,10 @@ def plot_tvl_momentum(df, lookback=30):
 # ════════════════════════════════════════════
 if __name__ == '__main__':
     os.makedirs('docs', exist_ok=True)
-    print('=== Building ETH Price + TVL Momentum ===')
+
+    print('=== Building ETH Stacked TVL chart ===')
     df  = build_dataframe()
-    fig = plot_tvl_momentum(df, lookback=LOOKBACK)
+    fig = plot_eth_vs_stacked_tvl_ath(df)
+
     fig.write_html(OUTPUT_PATH, include_plotlyjs='cdn', config={'responsive': True})
     print(f'Saved: {OUTPUT_PATH}')

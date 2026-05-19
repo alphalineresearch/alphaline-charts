@@ -1,13 +1,13 @@
 """
-generate_eth_stable_model_compact.py
-Alphaline Research — ETH vs Stablecoin Model (Compact 3-Panel)
+generate_eth_proxy_signal.py
+Alphaline Research — ETH RV7/RV30 Proxy Confluence Signal
 
-Fetches stablecoin TVL, staking data, RWA TVL from DeFiLlama and ETH price
-from Yahoo Finance (no API keys required), fits the log-log regression model,
-and writes eth_stable_model_compact.html to docs/.
+Fetches ETH price from Yahoo Finance and stablecoin/DeFi/RWA TVL from
+DeFiLlama (no API keys required), fits the combined TVL regression model,
+computes the three-condition signal, and writes eth_proxy_signal.html to docs/.
 
 Usage:
-    python generate_eth_stable_model_compact.py
+    python generate_eth_proxy_signal.py
 """
 
 import os
@@ -21,16 +21,16 @@ from sklearn.linear_model import LinearRegression
 import yfinance as yf
 
 # ════════════════════════════════════════════
-# CONFIG
+# SIGNAL THRESHOLDS
 # ════════════════════════════════════════════
-ETH_SUPPLY         = 120_000_000
-STAKING_RATE_INIT  = 0.28
-ATTACK_THRESHOLD   = 0.33
-ETH_TVL_THRESHOLD  = 1_000_000
+RV_RATIO_THRESH   = 1.7    # RV7/RV30 > this = vol surprise
+RV_EXTREME_THRESH = 2.5    # > this = extreme shock
+DD_THRESH         = 20.0   # % below 90d high = in drawdown
+ZSCORE_THRESH     = -1.0   # z-score <= this = below -1σ model
 
-LIDO_POOL_ID = '747c1d2a-c668-4682-b9f9-296708a3dd90'
+ETH_TVL_THRESHOLD = 1_000_000   # min $1M on Ethereum for RWA protocols
 
-OUTPUT_PATH = os.path.join('docs', 'eth_stable_model_compact.html')
+OUTPUT_PATH = os.path.join('docs', 'eth_proxy_signal.html')
 
 # ════════════════════════════════════════════
 # ALPHALINE BRAND COLORS
@@ -41,33 +41,92 @@ GOLD      = '#D4A843'
 WHITE     = '#F8FAFB'
 MIST      = '#7A8F9F'
 STEEL     = '#374D61'
-RED_LIT   = '#D64444'
 GREEN_LIT = '#2ABF7A'
+TEAL      = '#2ABF7A'
 
 CHART_WIDTH  = 1100
-CHART_HEIGHT = 750
+CHART_HEIGHT = 850
+
+
+def hex_to_rgba(h, a=0.35):
+    h = h.lstrip('#')
+    return f'rgba({int(h[0:2],16)},{int(h[2:4],16)},{int(h[4:6],16)},{a})'
+
+
+# ════════════════════════════════════════════
+# ALPHALINE CHART TEMPLATE
+# ════════════════════════════════════════════
+def alphaline_layout(fig, title, height=CHART_HEIGHT,
+                     source='alphalineresearch.com  |  Yahoo Finance · DeFiLlama'):
+    fig.update_layout(
+        template='plotly_dark',
+        paper_bgcolor=NAVY, plot_bgcolor=NAVY_MID,
+        height=height, autosize=True,
+        title=dict(
+            text=f'<span style="font-family:Georgia,serif; font-size:15px; color:{WHITE};">{title}</span>',
+            x=0.02, xanchor='left', y=0.98, yanchor='top'
+        ),
+        font=dict(family='Courier New, monospace', color=MIST, size=10),
+        margin=dict(l=60, r=80, t=65, b=80),
+        xaxis=dict(gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5, zeroline=False,
+                   showspikes=True, spikecolor=MIST, spikethickness=1, spikedash='dot'),
+        yaxis=dict(gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5, zeroline=False),
+        hoverlabel=dict(bgcolor=NAVY_MID, bordercolor=GOLD,
+                        font=dict(family='Courier New, monospace', size=11, color=WHITE)),
+        legend=dict(bgcolor='rgba(10,22,40,0.8)', bordercolor=STEEL, borderwidth=1,
+                    font=dict(size=9, color=MIST),
+                    orientation='h', x=0.5, y=1.02,
+                    xanchor='center', yanchor='bottom'),
+        annotations=[
+            dict(text=f'Source: {source}', xref='paper', yref='paper',
+                 x=1.0, y=-0.09, xanchor='right', yanchor='top',
+                 font=dict(family='Courier New, monospace', size=9, color=MIST), showarrow=False),
+            dict(text='<b>ALPHALINE RESEARCH</b>', xref='paper', yref='paper',
+                 x=0.0, y=-0.09, xanchor='left', yanchor='top',
+                 font=dict(family='Courier New, monospace', size=9, color=GOLD), showarrow=False),
+        ],
+    )
+    return fig
 
 
 # ════════════════════════════════════════════
 # HTTP HELPER
 # ════════════════════════════════════════════
-def _get(url, timeout=90, retries=3, backoff=15):
+def _get(url, timeout=90, retries=3):
     for attempt in range(retries):
         try:
-            r = requests.get(url, timeout=timeout)
-            r.raise_for_status()
-            return r
+            resp = requests.get(url, timeout=timeout)
+            resp.raise_for_status()
+            return resp
         except Exception as e:
-            wait = backoff * (attempt + 1)
-            print(f'  Retry {attempt+1}/{retries} after {wait}s ({type(e).__name__})')
             if attempt < retries - 1:
+                wait = 5 * (attempt + 1)
+                print(f'  Retry {attempt+1}/{retries-1} after {wait}s ({type(e).__name__})')
                 time.sleep(wait)
-    raise Exception(f'All {retries} attempts failed: {url}')
+            else:
+                raise
 
 
 # ════════════════════════════════════════════
 # DATA FETCHERS
 # ════════════════════════════════════════════
+def fetch_eth_price():
+    print('Fetching ETH price...')
+    raw = yf.download('ETH-USD', period='max', interval='1d', progress=False)
+    if isinstance(raw.columns, pd.MultiIndex):
+        raw.columns = [c[0].lower() for c in raw.columns]
+    else:
+        raw.columns = [c.lower() for c in raw.columns]
+    raw.index = pd.to_datetime(raw.index).tz_localize(None)
+    raw.index.name = 'date'
+    px = raw['close'].dropna().rename('eth_price')
+    today = pd.Timestamp.utcnow().normalize().tz_localize(None)
+    if len(px) and px.index[-1] >= today:
+        px = px.iloc[:-1]
+    print(f'  {len(px)} rows | latest: ${px.iloc[-1]:,.0f}')
+    return px
+
+
 def fetch_stablecoin_tvl():
     print('Fetching stablecoin TVL...')
     resp = _get('https://stablecoins.llama.fi/stablecoincharts/Ethereum')
@@ -81,54 +140,16 @@ def fetch_stablecoin_tvl():
     return df
 
 
-def fetch_staking_data():
-    print('Fetching staking data...')
-    # APY — graceful fallback if slow
-    apy_df = pd.DataFrame({'staking_apy': pd.Series(dtype=float)})
-    apy_df.index.name = 'date'
-    try:
-        resp = _get(f'https://yields.llama.fi/chart/{LIDO_POOL_ID}', timeout=120, retries=3, backoff=20)
-        apy_rows = []
-        for entry in resp.json().get('data', []):
-            ts = pd.Timestamp(entry['timestamp']).tz_localize(None).normalize()
-            apy_rows.append({'date': ts, 'staking_apy': entry.get('apy', None)})
-        apy_df = pd.DataFrame(apy_rows).set_index('date').sort_index()
-        apy_df['staking_apy'] = apy_df['staking_apy'].rolling(7, min_periods=1).mean()
-        print(f'  APY OK | latest: {apy_df["staking_apy"].dropna().iloc[-1]:.2f}%')
-    except Exception as e:
-        print(f'  APY fetch failed ({type(e).__name__}) — staking_apy will be NaN')
-
-    # Staked ETH TVL via Lido
-    resp2 = _get('https://api.llama.fi/protocol/lido')
-    eth_tvl_hist = resp2.json().get('chainTvls', {}).get('Ethereum', {}).get('tvl', [])
-    tvl_rows = [{'date': pd.Timestamp(int(pt['date']), unit='s').normalize(),
-                 'staked_usd': float(pt['totalLiquidityUSD'])} for pt in eth_tvl_hist]
-    tvl_df = pd.DataFrame(tvl_rows).set_index('date').sort_index()
-    tvl_df = tvl_df[~tvl_df.index.duplicated(keep='last')]
-    print(f'  Staked ETH OK | latest: ${tvl_df["staked_usd"].iloc[-1]/1e9:.1f}B')
-
-    df = apy_df.join(tvl_df, how='outer').iloc[:-1]
-    if 'staking_apy' not in df.columns:
-        df['staking_apy'] = float('nan')
+def fetch_defi_tvl():
+    print('Fetching Ethereum DeFi TVL...')
+    r = _get('https://api.llama.fi/v2/historicalChainTvl/Ethereum')
+    rows = [{'date': pd.Timestamp(int(e['date']), unit='s').normalize(),
+             'defi_tvl_usd': float(e['tvl'])} for e in r.json()]
+    df = pd.DataFrame(rows).set_index('date').sort_index()
+    df.index = pd.to_datetime(df.index).tz_localize(None)
+    df = df.iloc[:-1]
+    print(f'  {len(df)} rows | latest: ${df["defi_tvl_usd"].iloc[-1]/1e9:.2f}B')
     return df
-
-
-def fetch_eth_price():
-    print('Fetching ETH price...')
-    raw = yf.download('ETH-USD', period='max', interval='1d', progress=False)
-    if isinstance(raw.columns, pd.MultiIndex):
-        raw.columns = [c[0].lower() for c in raw.columns]
-    else:
-        raw.columns = [c.lower() for c in raw.columns]
-    raw.index = pd.to_datetime(raw.index).tz_localize(None)
-    raw.index.name = 'date'
-    eth = raw.dropna()
-    today = pd.Timestamp.utcnow().normalize().tz_localize(None)
-    if len(eth) and eth.index[-1] >= today:
-        eth = eth.iloc[:-1]
-    eth['mcap'] = eth['close'] * ETH_SUPPLY
-    print(f'  {len(eth)} rows | latest: ${eth["close"].iloc[-1]:,.0f}')
-    return eth
 
 
 def fetch_rwa_tvl():
@@ -153,223 +174,238 @@ def fetch_rwa_tvl():
                 all_series[name] = pd.Series(
                     {pd.Timestamp(p['date'], unit='s'): p['totalLiquidityUSD'] for p in hist}
                 )
-            time.sleep(0.3)
+            time.sleep(0.25)
         except Exception as e:
             print(f'  ! {name}: {e}')
-
     if not all_series:
+        print('  No RWA data — using zeros.')
         return pd.DataFrame(columns=['rwa_tvl_usd'])
-
     rwa_df = pd.DataFrame(all_series)
     rwa_df.index = pd.to_datetime(rwa_df.index).normalize()
     rwa_daily = rwa_df.resample('D').last().ffill()
     rwa_total = rwa_daily.sum(axis=1).to_frame(name='rwa_tvl_usd').iloc[:-1]
-    print(f'  latest: ${rwa_total["rwa_tvl_usd"].iloc[-1]/1e9:.2f}B')
+    print(f'  latest: ${rwa_total["rwa_tvl_usd"].iloc[-1]/1e9:.3f}B')
     return rwa_total
 
 
 # ════════════════════════════════════════════
-# BUILD DATAFRAME + FIT MODEL
+# BUILD DATAFRAME + MODEL + SIGNALS
 # ════════════════════════════════════════════
 def build_dataframe():
-    stable  = fetch_stablecoin_tvl()
-    staking = fetch_staking_data()
-    eth     = fetch_eth_price()
-    rwa     = fetch_rwa_tvl()
+    eth_px = fetch_eth_price()
+    stable = fetch_stablecoin_tvl()
+    defi   = fetch_defi_tvl()
+    rwa    = fetch_rwa_tvl()
 
-    df = stable.copy()
-    df = df.join(staking[['staking_apy', 'staked_usd']], how='left')
-    df = df.join(eth[['close', 'mcap']].rename(columns={'close': 'eth_price'}), how='left')
-    df = df.dropna(subset=['eth_price'])
+    # RV metrics
+    log_ret   = np.log(eth_px / eth_px.shift(1))
+    rv7_full  = log_ret.rolling(7,  min_periods=5).std()  * np.sqrt(365) * 100
+    rv30_full = log_ret.rolling(30, min_periods=20).std() * np.sqrt(365) * 100
+    ratio_full = (rv7_full / rv30_full).replace([np.inf, -np.inf], np.nan)
 
-    df['current_staked']  = df['staked_usd'] / df['eth_price']
-    df['pct_staked']      = df['current_staked'] / ETH_SUPPLY * 100
-    df['cir_supply']      = np.where(
-        df['pct_staked'] > 0,
-        df['current_staked'] / (df['pct_staked'] / 100),
-        ETH_SUPPLY
-    )
-    df = df.join(rwa[['rwa_tvl_usd']], how='left')
-    df['rwa_tvl_usd']      = df['rwa_tvl_usd'].fillna(0)
-    df['total_secured_usd'] = df['stable_tvl_usd'] + df['rwa_tvl_usd']
-    df['stable_to_mcap']   = df['stable_tvl_usd'] / df['mcap']
-    df['stake_ratio_actual'] = df['pct_staked'].fillna(STAKING_RATE_INIT * 100) / 100
-    df['supply_actual']    = df['cir_supply'].fillna(ETH_SUPPLY)
+    high_90d = eth_px.rolling(90).max()
+    dd_90d   = (eth_px / high_90d - 1) * 100
 
-    return df
+    df = pd.concat([
+        eth_px,
+        rv7_full.rename('rv7'),
+        rv30_full.rename('rv30'),
+        ratio_full.rename('rv_ratio'),
+        high_90d.rename('high_90d'),
+        dd_90d.rename('dd_90d'),
+    ], axis=1).dropna(subset=['rv_ratio'])
 
+    # Join TVL components
+    df = df.join(stable['stable_tvl_usd'], how='left')
+    df = df.join(defi['defi_tvl_usd'],     how='left')
+    if len(rwa) > 0:
+        df = df.join(rwa['rwa_tvl_usd'], how='left')
+    else:
+        df['rwa_tvl_usd'] = 0.0
 
-def fit_model(df, x_col, min_val=1e8):
-    reg = df.dropna(subset=[x_col, 'eth_price'])
-    reg = reg[reg[x_col] > min_val]
-    lx  = np.log(reg[x_col].values).reshape(-1, 1)
-    ly  = np.log(reg['eth_price'].values)
-    m   = LinearRegression().fit(lx, ly)
-    r2  = m.score(lx, ly)
-    resid_std = (ly - m.predict(lx)).std()
-    return m, r2, resid_std
+    df['stable_tvl_usd'] = df['stable_tvl_usd'].ffill()
+    df['defi_tvl_usd']   = df['defi_tvl_usd'].ffill().fillna(0)
+    df['rwa_tvl_usd']    = df['rwa_tvl_usd'].ffill().fillna(0)
+    df['total_secured_usd'] = df['stable_tvl_usd'] + df['defi_tvl_usd'] + df['rwa_tvl_usd']
 
+    # Fit combined TVL model
+    reg_df = df.dropna(subset=['total_secured_usd', 'eth_price'])
+    reg_df = reg_df[reg_df['total_secured_usd'] > 1e9]
+    lx = np.log(reg_df['total_secured_usd'].values).reshape(-1, 1)
+    ly = np.log(reg_df['eth_price'].values)
+    model     = LinearRegression().fit(lx, ly)
+    resid_std = (ly - model.predict(lx)).std()
+    r2        = model.score(lx, ly)
 
-def apply_model(df, model, std, x_col, label):
-    mask = df[x_col] > 1e8
-    df[f'eth_model_{label}'] = np.where(
+    mask = df['total_secured_usd'] > 1e9
+    df['eth_model'] = np.where(
         mask,
-        np.exp(model.predict(np.log(df[x_col].clip(lower=1e8)).values.reshape(-1, 1))),
+        np.exp(model.predict(np.log(df['total_secured_usd'].clip(lower=1e9)).values.reshape(-1, 1))),
         np.nan
     )
-    df[f'band_1up_{label}'] = df[f'eth_model_{label}'] * np.exp( 1 * std)
-    df[f'band_1dn_{label}'] = df[f'eth_model_{label}'] * np.exp(-1 * std)
-    df[f'band_2up_{label}'] = df[f'eth_model_{label}'] * np.exp( 2 * std)
-    df[f'band_2dn_{label}'] = df[f'eth_model_{label}'] * np.exp(-2 * std)
-    df[f'zscore_{label}']   = np.log(df['eth_price'] / df[f'eth_model_{label}']) / std
-    return df
+    df['band_1dn'] = df['eth_model'] * np.exp(-1 * resid_std)
+    df['band_2up'] = df['eth_model'] * np.exp( 2 * resid_std)
+    df['band_2dn'] = df['eth_model'] * np.exp(-2 * resid_std)
+    df['zscore']   = np.log(df['eth_price'] / df['eth_model']) / resid_std
+
+    print(f'Combined TVL model R²={r2:.3f} | Z-score: {df["zscore"].iloc[-1]:+.2f}σ')
+
+    # Signal conditions
+    is_vol_surprise = df['rv_ratio'] > RV_RATIO_THRESH
+    is_drawdown     = df['dd_90d']   <= -DD_THRESH
+    is_cheap        = df['zscore']   <= ZSCORE_THRESH
+
+    sig_all = is_vol_surprise & is_drawdown & is_cheap
+
+    return df, sig_all, r2
 
 
 # ════════════════════════════════════════════
-# CHART — ETH STABLE MODEL COMPACT (3 panels)
+# CHART — ETH PROXY CONFLUENCE SIGNAL
 # ════════════════════════════════════════════
-def plot_model_compact(df, r2):
-    model_df = df.dropna(subset=['eth_model'])
+def plot_eth_proxy_signal(df, sig_all):
+    d = df.dropna(subset=['eth_model'])
 
     fig = make_subplots(
-        rows=3, cols=1, shared_xaxes=True,
-        row_heights=[0.52, 0.22, 0.26],
-        vertical_spacing=0.025
+        rows=2, cols=1, shared_xaxes=True,
+        row_heights=[0.62, 0.38],
+        vertical_spacing=0.03
     )
 
-    # ── ±2 std band ──
+    # Confluence episode bands
+    s_all = d[sig_all.reindex(d.index, fill_value=False)]
+    if len(s_all) > 0:
+        conf_dates_list = s_all.index.tolist()
+        episodes = []
+        ep_s = ep_e = conf_dates_list[0]
+        for j in range(1, len(conf_dates_list)):
+            if (conf_dates_list[j] - conf_dates_list[j-1]).days > 14:
+                episodes.append((ep_s, ep_e))
+                ep_s = conf_dates_list[j]
+            ep_e = conf_dates_list[j]
+        episodes.append((ep_s, ep_e))
+
+        for ep_s, ep_e in episodes:
+            for _row in [1, 2]:
+                fig.add_vrect(
+                    x0=ep_s - pd.Timedelta(days=1),
+                    x1=ep_e + pd.Timedelta(days=1),
+                    fillcolor=hex_to_rgba(GREEN_LIT, 0.11),
+                    line_width=0.7, line_color=hex_to_rgba(GREEN_LIT, 0.30),
+                    layer='below', row=_row, col=1
+                )
+            # Solid green vertical lines at episode boundaries
+            for ep_date in [ep_s, ep_e]:
+                fig.add_vline(
+                    x=str(ep_date.date()),
+                    line_color=GREEN_LIT,
+                    line_width=1.2,
+                    opacity=0.5,
+                )
+
+    # ── Panel 1: ETH price + model bands + signals ──
     fig.add_trace(go.Scatter(
-        x=pd.concat([model_df.index.to_series(), model_df.index.to_series()[::-1]]),
-        y=pd.concat([model_df['band_2up'], model_df['band_2dn'][::-1]]),
-        fill='toself', fillcolor='rgba(212,168,67,0.06)',
-        line=dict(width=0), showlegend=True, name='±2 Std Dev', hoverinfo='skip'
+        x=pd.concat([d.index.to_series(), d.index.to_series()[::-1]]),
+        y=pd.concat([d['band_2up'], d['band_2dn'][::-1]]),
+        fill='toself', fillcolor='rgba(42,191,122,0.06)',
+        line=dict(width=0), showlegend=False, hoverinfo='skip'
     ), row=1, col=1)
 
-    # ── ±1 std band ──
     fig.add_trace(go.Scatter(
-        x=pd.concat([model_df.index.to_series(), model_df.index.to_series()[::-1]]),
-        y=pd.concat([model_df['band_1up'], model_df['band_1dn'][::-1]]),
-        fill='toself', fillcolor='rgba(212,168,67,0.12)',
-        line=dict(width=0), showlegend=True, name='±1 Std Dev', hoverinfo='skip'
+        x=d.index, y=d['band_1dn'],
+        mode='lines', name='-1σ band  (signal threshold)',
+        line=dict(color=TEAL, width=1.0, dash='dot'),
+        hovertemplate='%{x|%Y-%m-%d}<br>-1σ: $%{y:,.0f}<extra></extra>'
     ), row=1, col=1)
 
     fig.add_trace(go.Scatter(
-        x=model_df.index, y=model_df['eth_model'],
-        mode='lines', line=dict(color='rgba(248,250,251,0.55)', width=1.4, dash='dash'),
-        name='Model', showlegend=True,
+        x=d.index, y=d['eth_model'],
+        mode='lines', name='Combined TVL model (fair value)',
+        line=dict(color=TEAL, width=1.5, dash='dash'),
         hovertemplate='%{x|%Y-%m-%d}<br>Model: $%{y:,.0f}<extra></extra>'
     ), row=1, col=1)
 
     fig.add_trace(go.Scatter(
-        x=model_df.index, y=model_df['eth_price'],
-        mode='lines', line=dict(color=GOLD, width=2.0),
-        name='ETH Price', showlegend=True,
+        x=d.index, y=d['eth_price'],
+        mode='lines', name='ETH Price',
+        line=dict(color=GOLD, width=1.8),
         hovertemplate='%{x|%Y-%m-%d}<br>ETH: $%{y:,.0f}<extra></extra>'
     ), row=1, col=1)
 
-    # ── Panel 2: TVL / Market Cap ratio ──
-    ratio        = model_df['stable_to_mcap']
-    ratio_smooth = ratio.rolling(30, min_periods=7).mean()
-    fig.add_trace(go.Scatter(
-        x=model_df.index, y=ratio,
-        mode='lines', line=dict(color='rgba(212,168,67,0.25)', width=0.8),
-        fill='tozeroy', fillcolor='rgba(212,168,67,0.07)',
-        showlegend=False,
-        hovertemplate='%{x|%Y-%m-%d}<br>TVL/Mcap: %{y:.2f}x<extra></extra>'
-    ), row=2, col=1)
-    fig.add_trace(go.Scatter(
-        x=model_df.index, y=ratio_smooth,
-        mode='lines', name='TVL/Mcap 30d', line=dict(color=GOLD, width=1.5),
-        showlegend=True,
-        hovertemplate='%{x|%Y-%m-%d}<br>30d MA: %{y:.2f}x<extra></extra>'
-    ), row=2, col=1)
     fig.add_annotation(
-        x=model_df.index[-1], y=ratio.iloc[-1],
-        text=f'  {ratio.iloc[-1]:.2f}x',
+        x=d.index[-1], y=d['eth_price'].iloc[-1],
+        text=f'  ${d["eth_price"].iloc[-1]:,.0f}',
         showarrow=False, xanchor='left',
-        font=dict(family='Courier New, monospace', size=9, color=GOLD), row=2, col=1
+        font=dict(family='Courier New, monospace', size=10, color=GOLD)
     )
 
-    # ── Panel 3: Z-score bars ──
-    zscore  = model_df['zscore']
-    zcolors = [
-        RED_LIT                  if v >  2 else
-        'rgba(214,68,68,0.55)'   if v >  1 else
-        'rgba(214,68,68,0.30)'   if v >  0 else
-        'rgba(42,191,122,0.30)'  if v > -1 else
-        'rgba(42,191,122,0.55)'  if v > -2 else
-        GREEN_LIT
-        for v in zscore
-    ]
-    fig.add_trace(go.Bar(
-        x=model_df.index, y=zscore, marker_color=zcolors,
-        showlegend=False,
-        hovertemplate='%{x|%Y-%m-%d}<br>Z-score: %{y:+.2f}σ<extra></extra>'
-    ), row=3, col=1)
+    if len(s_all):
+        fig.add_trace(go.Scatter(
+            x=s_all.index, y=s_all['eth_price'],
+            mode='markers', name='● Confluence signal (Vol + DD + Model)',
+            marker=dict(symbol='circle', size=7, color=GREEN_LIT, opacity=0.90,
+                        line=dict(color=WHITE, width=0.6)),
+            hovertemplate='%{x|%Y-%m-%d}<br>ETH: $%{y:,.0f}<br>Confluence: all 3<extra></extra>'
+        ), row=1, col=1)
+
+    # ── Panel 2: RV7/RV30 ratio ──
+    rv    = d['rv_ratio'].dropna()
+    rv_ma = rv.rolling(14, min_periods=5).mean()
+
+    fig.add_hrect(y0=RV_RATIO_THRESH, y1=RV_EXTREME_THRESH,
+                  fillcolor=hex_to_rgba(GOLD, 0.08),
+                  line_width=0, layer='below', row=2, col=1)
+
     fig.add_trace(go.Scatter(
-        x=zscore.index, y=zscore.rolling(28, min_periods=7).mean(),
-        mode='lines', line=dict(color='rgba(248,250,251,0.40)', width=1.8),
-        showlegend=False,
-        hovertemplate='%{x|%Y-%m-%d}<br>28d MA: %{y:+.2f}σ<extra></extra>'
-    ), row=3, col=1)
-    for level, color in [(2, RED_LIT), (1, 'rgba(214,68,68,0.6)'),
-                         (-1, 'rgba(42,191,122,0.6)'), (-2, GREEN_LIT)]:
+        x=rv.index, y=rv,
+        mode='lines', name='RV7/RV30 ratio',
+        line=dict(color=MIST, width=1.0), opacity=0.60,
+        hovertemplate='%{x|%Y-%m-%d}<br>RV7/RV30: %{y:.2f}<extra></extra>'
+    ), row=2, col=1)
+
+    fig.add_trace(go.Scatter(
+        x=rv_ma.index, y=rv_ma,
+        mode='lines', name='14d MA ratio',
+        line=dict(color=GOLD, width=1.6),
+        hovertemplate='%{x|%Y-%m-%d}<br>14d MA: %{y:.2f}<extra></extra>'
+    ), row=2, col=1)
+
+    for thresh, color, label in [
+        (1.0,             STEEL, '1.0×'),
+        (RV_RATIO_THRESH, GOLD,  f'{RV_RATIO_THRESH}×'),
+    ]:
+        fig.add_shape(type='line',
+            x0=rv.index[0], x1=rv.index[-1],
+            y0=thresh, y1=thresh,
+            line=dict(color=color, width=0.8, dash='dot'),
+            row=2, col=1)
         fig.add_annotation(
-            x=model_df.index[-1], y=level, text=f'  {level:+d}σ',
-            showarrow=False, xanchor='left',
-            font=dict(family='Courier New, monospace', size=8, color=color), row=3, col=1
-        )
+            x=rv.index[-1], y=thresh,
+            text=f'  {label}', showarrow=False, xanchor='left',
+            font=dict(family='Courier New, monospace', size=8, color=color),
+            row=2, col=1)
 
-    latest  = model_df.iloc[-1]
-    z_label = f'{latest["zscore"]:+.2f}σ'
-    title   = (
-        f'ETH vs Stablecoin Model  |  '
-        f'Price: ${latest["eth_price"]:,.0f}  |  '
-        f'Model: ${latest["eth_model"]:,.0f}  |  '
-        f'R²: {r2:.2f}  |  Z-score: {z_label}'
-    )
+    if len(s_all):
+        s_all_rv = rv.reindex(s_all.index).dropna()
+        fig.add_trace(go.Scatter(
+            x=s_all_rv.index, y=s_all_rv,
+            mode='markers', showlegend=False,
+            marker=dict(symbol='circle', size=7, color=GREEN_LIT, opacity=0.90),
+            hovertemplate='%{x|%Y-%m-%d}<br>RV ratio: %{y:.2f}<br>Confluence: all 3<extra></extra>'
+        ), row=2, col=1)
 
+    # Layout
+    title = 'ETH RV7/RV30 Proxy Signal  |  ● Confluence = Vol Surprise + DD + Near Model'
+    alphaline_layout(fig, title, height=CHART_HEIGHT)
     fig.update_layout(
-        template='plotly_dark', paper_bgcolor=NAVY, plot_bgcolor=NAVY_MID,
-        height=CHART_HEIGHT, autosize=True,
-        title=dict(
-            text=f'<span style="font-family:Georgia,serif; font-size:15px; color:{WHITE};">{title}</span>',
-            x=0.02, xanchor='left', y=0.98, yanchor='top'
-        ),
-        font=dict(family='Courier New, monospace', color=MIST, size=10),
-        margin=dict(l=55, r=38, t=65, b=90),
-        hoverlabel=dict(bgcolor=NAVY_MID, bordercolor=GOLD,
-                        font=dict(family='Courier New, monospace', size=11, color=WHITE)),
         showlegend=True,
-        legend=dict(bgcolor='rgba(10,22,40,0.8)', bordercolor=STEEL, borderwidth=1,
+        legend=dict(orientation='h', x=0.5, y=1.02, xanchor='center', yanchor='bottom',
                     font=dict(size=9, color=MIST),
-                    orientation='h', x=0.5, y=1.02, xanchor='center', yanchor='bottom'),
-        bargap=0,
-        annotations=[
-            dict(text='Source: alphalineresearch.com  |  Yahoo Finance  |  DeFiLlama',
-                 xref='paper', yref='paper', x=1.0, y=-0.068,
-                 xanchor='right', yanchor='top',
-                 font=dict(family='Courier New, monospace', size=9, color=MIST), showarrow=False),
-            dict(text='<b>ALPHALINE RESEARCH</b>',
-                 xref='paper', yref='paper', x=0.075, y=-0.068,
-                 xanchor='left', yanchor='top',
-                 font=dict(family='Courier New, monospace', size=9, color=GOLD), showarrow=False),
-        ],
-        xaxis=dict(gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5, zeroline=False,
-                   showspikes=True, spikecolor=MIST, spikethickness=1, spikedash='dot'),
-        xaxis2=dict(gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5, zeroline=False),
-        xaxis3=dict(gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5, zeroline=False),
-        yaxis=dict(gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5, zeroline=False),
+                    bgcolor='rgba(10,22,40,0.85)', bordercolor=STEEL, borderwidth=1),
     )
-    fig.update_yaxes(title_text='ETH Price', row=1, col=1,
-                     title_font=dict(size=10, color=MIST), type='log', tickformat='$,.0f')
-    fig.update_yaxes(title_text='TVL / Mcap', row=2, col=1,
-                     title_font=dict(size=10, color=MIST),
-                     gridcolor='rgba(212,168,67,0.03)', gridwidth=0.4)
-    fig.update_yaxes(title_text='Z-Score (σ)', row=3, col=1,
-                     title_font=dict(size=10, color=MIST),
-                     gridcolor='rgba(212,168,67,0.03)', gridwidth=0.4)
-    fig.update_xaxes(rangeslider_visible=False)
+    fig.update_yaxes(type='log', tickprefix='$', title_text='ETH Price (log)', row=1, col=1)
+    fig.update_yaxes(title_text='RV7/RV30 ratio', row=2, col=1)
+    fig.update_xaxes(title_text='Date', row=2, col=1)
     return fig
 
 
@@ -379,23 +415,9 @@ def plot_model_compact(df, r2):
 if __name__ == '__main__':
     os.makedirs('docs', exist_ok=True)
 
-    print('=== Building ETH Stable Model Compact chart ===')
-    df = build_dataframe()
+    print('=== Building ETH Proxy Confluence Signal chart ===')
+    df, sig_all, r2 = build_dataframe()
+    fig = plot_eth_proxy_signal(df, sig_all)
 
-    # Fit model A (stablecoins only) — used for this chart
-    model_a, r2, std_a = fit_model(df, 'stable_tvl_usd')
-    df = apply_model(df, model_a, std_a, 'stable_tvl_usd', 'a')
-
-    # Alias to generic column names expected by plot function
-    df['eth_model'] = df['eth_model_a']
-    df['band_1up']  = df['band_1up_a']
-    df['band_1dn']  = df['band_1dn_a']
-    df['band_2up']  = df['band_2up_a']
-    df['band_2dn']  = df['band_2dn_a']
-    df['zscore']    = df['zscore_a']
-
-    print(f'Model R²: {r2:.3f} | Z-score: {df["zscore"].iloc[-1]:+.2f}σ')
-
-    fig = plot_model_compact(df, r2)
     fig.write_html(OUTPUT_PATH, include_plotlyjs='cdn', config={'responsive': True})
     print(f'Saved: {OUTPUT_PATH}')
