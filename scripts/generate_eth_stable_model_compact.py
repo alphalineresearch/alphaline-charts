@@ -321,14 +321,20 @@ def plot_model_compact(df, r2):
         )
 
     latest  = model_df.iloc[-1]
-    z_label = f'{latest["zscore"]:+.2f}σ'
-    # Short title — key stats go in the subtitle annotation below
-    title   = 'ETH vs Stablecoin Model'
+    # Short title — key stats in subtitle annotation, z-score omitted
+    title    = 'ETH vs Stablecoin Model'
     subtitle = (
         f'Price: ${latest["eth_price"]:,.0f}  ·  '
         f'Model: ${latest["eth_model"]:,.0f}  ·  '
-        f'R²: {r2:.2f}  ·  Z-score: {z_label}'
+        f'R²: {r2:.2f}'
     )
+
+    # Bottom layout (paper coords, y=0 is bottom of plot area):
+    #   y=-0.06  subtitle (stats row)
+    #   y=-0.13  legend   (handled by legend dict, yanchor='top')
+    #   y=-0.22  ALPHALINE RESEARCH
+    #   y=-0.27  source
+    # b=130px gives enough physical space for all four rows at CHART_HEIGHT=750
 
     fig.update_layout(
         template='plotly_dark', paper_bgcolor=NAVY, plot_bgcolor=NAVY_MID,
@@ -338,34 +344,29 @@ def plot_model_compact(df, r2):
             x=0.02, xanchor='left', y=0.985, yanchor='top'
         ),
         font=dict(family='Courier New, monospace', color=MIST, size=10),
-        # l: enough for y-axis labels; r: reduced since source is now bottom-centre;
-        # t: room for title + subtitle; b: two rows of bottom annotations
-        margin=dict(l=62, r=24, t=72, b=85),
+        margin=dict(l=62, r=24, t=72, b=130),
         hoverlabel=dict(bgcolor=NAVY_MID, bordercolor=GOLD,
                         font=dict(family='Courier New, monospace', size=11, color=WHITE)),
         showlegend=True,
-        # Legend sits BELOW the x-axis, centred, outside the plot area
         legend=dict(
             bgcolor='rgba(10,22,40,0.0)', bordercolor='rgba(0,0,0,0)', borderwidth=0,
             font=dict(size=9, color=MIST),
             orientation='h', x=0.5, xanchor='center',
-            y=-0.10, yanchor='top',   # below the bottom x-axis tick labels
+            y=-0.13, yanchor='top',
             tracegroupgap=0,
         ),
         bargap=0,
         annotations=[
-            # Row 1 beneath chart: subtitle (key stats)
-            dict(text=f'<span style="color:{MIST};">{subtitle}</span>',
-                 xref='paper', yref='paper', x=0.02, y=-0.055,
+            dict(text=subtitle,
+                 xref='paper', yref='paper', x=0.0, y=-0.06,
                  xanchor='left', yanchor='top',
                  font=dict(family='Courier New, monospace', size=9, color=MIST), showarrow=False),
-            # Row 2 beneath chart: brand left, source right — clearly separated
             dict(text='<b>ALPHALINE RESEARCH</b>',
-                 xref='paper', yref='paper', x=0.0, y=-0.135,
+                 xref='paper', yref='paper', x=0.0, y=-0.22,
                  xanchor='left', yanchor='top',
                  font=dict(family='Courier New, monospace', size=8, color=GOLD), showarrow=False),
             dict(text='alphalineresearch.com  ·  Yahoo Finance  ·  DeFiLlama',
-                 xref='paper', yref='paper', x=0.0, y=-0.175,
+                 xref='paper', yref='paper', x=0.0, y=-0.27,
                  xanchor='left', yanchor='top',
                  font=dict(family='Courier New, monospace', size=8, color=STEEL), showarrow=False),
         ],
