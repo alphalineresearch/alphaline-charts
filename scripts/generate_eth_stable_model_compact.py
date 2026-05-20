@@ -322,11 +322,12 @@ def plot_model_compact(df, r2):
 
     latest  = model_df.iloc[-1]
     z_label = f'{latest["zscore"]:+.2f}σ'
-    title   = (
-        f'ETH vs Stablecoin Model  |  '
-        f'Price: ${latest["eth_price"]:,.0f}  |  '
-        f'Model: ${latest["eth_model"]:,.0f}  |  '
-        f'R²: {r2:.2f}  |  Z-score: {z_label}'
+    # Short title — key stats go in the subtitle annotation below
+    title   = 'ETH vs Stablecoin Model'
+    subtitle = (
+        f'Price: ${latest["eth_price"]:,.0f}  ·  '
+        f'Model: ${latest["eth_model"]:,.0f}  ·  '
+        f'R²: {r2:.2f}  ·  Z-score: {z_label}'
     )
 
     fig.update_layout(
@@ -334,26 +335,39 @@ def plot_model_compact(df, r2):
         height=CHART_HEIGHT, autosize=True,
         title=dict(
             text=f'<span style="font-family:Georgia,serif; font-size:15px; color:{WHITE};">{title}</span>',
-            x=0.02, xanchor='left', y=0.98, yanchor='top'
+            x=0.02, xanchor='left', y=0.985, yanchor='top'
         ),
         font=dict(family='Courier New, monospace', color=MIST, size=10),
-        margin=dict(l=60, r=80, t=65, b=80),
+        # l: enough for y-axis labels; r: reduced since source is now bottom-centre;
+        # t: room for title + subtitle; b: two rows of bottom annotations
+        margin=dict(l=62, r=24, t=72, b=85),
         hoverlabel=dict(bgcolor=NAVY_MID, bordercolor=GOLD,
                         font=dict(family='Courier New, monospace', size=11, color=WHITE)),
         showlegend=True,
-        legend=dict(bgcolor='rgba(10,22,40,0.8)', bordercolor=STEEL, borderwidth=1,
-                    font=dict(size=9, color=MIST),
-                    orientation='h', x=0.5, y=1.02, xanchor='center', yanchor='bottom'),
+        # Legend sits BELOW the x-axis, centred, outside the plot area
+        legend=dict(
+            bgcolor='rgba(10,22,40,0.0)', bordercolor='rgba(0,0,0,0)', borderwidth=0,
+            font=dict(size=9, color=MIST),
+            orientation='h', x=0.5, xanchor='center',
+            y=-0.10, yanchor='top',   # below the bottom x-axis tick labels
+            tracegroupgap=0,
+        ),
         bargap=0,
         annotations=[
-            dict(text='Source: alphalineresearch.com  |  Yahoo Finance  |  DeFiLlama',
-                 xref='paper', yref='paper', x=1.0, y=-0.09,
-                 xanchor='right', yanchor='top',
-                 font=dict(family='Courier New, monospace', size=9, color=MIST), showarrow=False),
-            dict(text='<b>ALPHALINE RESEARCH</b>',
-                 xref='paper', yref='paper', x=0.0, y=-0.09,
+            # Row 1 beneath chart: subtitle (key stats)
+            dict(text=f'<span style="color:{MIST};">{subtitle}</span>',
+                 xref='paper', yref='paper', x=0.02, y=-0.055,
                  xanchor='left', yanchor='top',
-                 font=dict(family='Courier New, monospace', size=9, color=GOLD), showarrow=False),
+                 font=dict(family='Courier New, monospace', size=9, color=MIST), showarrow=False),
+            # Row 2 beneath chart: brand left, source right — clearly separated
+            dict(text='<b>ALPHALINE RESEARCH</b>',
+                 xref='paper', yref='paper', x=0.0, y=-0.135,
+                 xanchor='left', yanchor='top',
+                 font=dict(family='Courier New, monospace', size=8, color=GOLD), showarrow=False),
+            dict(text='alphalineresearch.com  ·  Yahoo Finance  ·  DeFiLlama',
+                 xref='paper', yref='paper', x=0.0, y=-0.175,
+                 xanchor='left', yanchor='top',
+                 font=dict(family='Courier New, monospace', size=8, color=STEEL), showarrow=False),
         ],
         xaxis=dict(gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5, zeroline=False,
                    showspikes=True, spikecolor=MIST, spikethickness=1, spikedash='dot'),
