@@ -321,30 +321,31 @@ def plot_model_compact(df, r2):
         )
 
     latest  = model_df.iloc[-1]
-    # Short title — key stats in subtitle annotation, z-score omitted
     title    = 'ETH vs Stablecoin Model'
-    subtitle = (
+    stats    = (
         f'Price: ${latest["eth_price"]:,.0f}  ·  '
         f'Model: ${latest["eth_model"]:,.0f}  ·  '
         f'R²: {r2:.2f}'
     )
 
-    # Bottom layout (paper coords, y=0 is bottom of plot area):
-    #   y=-0.06  subtitle (stats row)
-    #   y=-0.13  legend   (handled by legend dict, yanchor='top')
-    #   y=-0.22  ALPHALINE RESEARCH
-    #   y=-0.27  source
-    # b=130px gives enough physical space for all four rows at CHART_HEIGHT=750
+    # Top margin (t=90) holds two rows above the plot:
+    #   title  at y=0.99  (via title dict)
+    #   stats  at y=0.955 (annotation, just below title)
+    #
+    # Bottom margin (b=100) holds three rows below the plot:
+    #   y=-0.06  source text
+    #   y=-0.14  legend (centred, via legend dict)
+    #   y=-0.26  ALPHALINE RESEARCH  — well clear of legend
 
     fig.update_layout(
         template='plotly_dark', paper_bgcolor=NAVY, plot_bgcolor=NAVY_MID,
         height=CHART_HEIGHT, autosize=True,
         title=dict(
             text=f'<span style="font-family:Georgia,serif; font-size:15px; color:{WHITE};">{title}</span>',
-            x=0.02, xanchor='left', y=0.985, yanchor='top'
+            x=0.02, xanchor='left', y=0.99, yanchor='top'
         ),
         font=dict(family='Courier New, monospace', color=MIST, size=10),
-        margin=dict(l=62, r=24, t=72, b=130),
+        margin=dict(l=50, r=24, t=90, b=100),
         hoverlabel=dict(bgcolor=NAVY_MID, bordercolor=GOLD,
                         font=dict(family='Courier New, monospace', size=11, color=WHITE)),
         showlegend=True,
@@ -352,23 +353,26 @@ def plot_model_compact(df, r2):
             bgcolor='rgba(10,22,40,0.0)', bordercolor='rgba(0,0,0,0)', borderwidth=0,
             font=dict(size=9, color=MIST),
             orientation='h', x=0.5, xanchor='center',
-            y=-0.13, yanchor='top',
+            y=-0.14, yanchor='top',
             tracegroupgap=0,
         ),
         bargap=0,
         annotations=[
-            dict(text=subtitle,
-                 xref='paper', yref='paper', x=0.0, y=-0.06,
+            # Stats row — below title in top margin
+            dict(text=stats,
+                 xref='paper', yref='paper', x=0.02, y=0.955,
                  xanchor='left', yanchor='top',
                  font=dict(family='Courier New, monospace', size=9, color=MIST), showarrow=False),
-            dict(text='<b>ALPHALINE RESEARCH</b>',
-                 xref='paper', yref='paper', x=0.0, y=-0.22,
-                 xanchor='left', yanchor='top',
-                 font=dict(family='Courier New, monospace', size=8, color=GOLD), showarrow=False),
+            # Source — first row below plot, where stats used to be
             dict(text='alphalineresearch.com  ·  Yahoo Finance  ·  DeFiLlama',
-                 xref='paper', yref='paper', x=0.0, y=-0.27,
+                 xref='paper', yref='paper', x=0.0, y=-0.06,
                  xanchor='left', yanchor='top',
                  font=dict(family='Courier New, monospace', size=8, color=STEEL), showarrow=False),
+            # Brand — below legend, enough gap to never overlap
+            dict(text='<b>ALPHALINE RESEARCH</b>',
+                 xref='paper', yref='paper', x=0.0, y=-0.26,
+                 xanchor='left', yanchor='top',
+                 font=dict(family='Courier New, monospace', size=8, color=GOLD), showarrow=False),
         ],
         xaxis=dict(gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5, zeroline=False,
                    showspikes=True, spikecolor=MIST, spikethickness=1, spikedash='dot'),
@@ -376,13 +380,11 @@ def plot_model_compact(df, r2):
         xaxis3=dict(gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5, zeroline=False),
         yaxis=dict(gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5, zeroline=False),
     )
-    fig.update_yaxes(title_text='ETH Price', row=1, col=1,
-                     title_font=dict(size=10, color=MIST), type='log', tickformat='$,.0f')
-    fig.update_yaxes(title_text='TVL / Mcap', row=2, col=1,
-                     title_font=dict(size=10, color=MIST),
+    fig.update_yaxes(row=1, col=1, type='log', tickformat='$,.0f',
+                     gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5)
+    fig.update_yaxes(row=2, col=1,
                      gridcolor='rgba(212,168,67,0.03)', gridwidth=0.4)
-    fig.update_yaxes(title_text='Z-Score (σ)', row=3, col=1,
-                     title_font=dict(size=10, color=MIST),
+    fig.update_yaxes(row=3, col=1,
                      gridcolor='rgba(212,168,67,0.03)', gridwidth=0.4)
     fig.update_xaxes(rangeslider_visible=False)
     return fig
