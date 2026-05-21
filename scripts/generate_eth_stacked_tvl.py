@@ -76,7 +76,7 @@ def alphaline_layout(fig, title, height=CHART_HEIGHT, subtitle='',
                         font=dict(family='Courier New, monospace', size=11, color=WHITE)),
         annotations=[
             dict(text=f'Source: {source}', xref='paper', yref='paper',
-                 x=0.0, y=-0.04, xanchor='left', yanchor='top',
+                 x=0.0, y=-0.03, xanchor='left', yanchor='top',
                  font=dict(family='Courier New, monospace', size=8, color=STEEL), showarrow=False),
 
         ],
@@ -303,20 +303,6 @@ def plot_eth_vs_stacked_tvl_ath(df):
         )
 
     # Event lines
-    events = [
-        (BEACON_CHAIN, 'Beacon',   STEEL),
-        (MERGE,        'Merge',    MIST),
-        (SHANGHAI,     'Shanghai', GOLD),
-        (EIP4844,      '4844',     MIST),
-        (ETH_ETF,      'ETFs',     GOLD_LIT),
-    ]
-    for date, label, evt_color in events:
-        for row in [1, 2]:
-            fig.add_vline(x=date, line_color=evt_color, line_width=1,
-                          line_dash='dot', row=row, col=1)
-        fig.add_annotation(x=date, y=1.01, xref='x', yref='paper',
-            text=label, showarrow=False,
-            font=dict(size=8, color=evt_color), xanchor='left')
 
     subtitle = f'ETH: ${latest["eth_price"]:,.0f}  ·  Total Secured: ${latest["total_secured_usd"]/1e9:.0f}B'
     alphaline_layout(fig, 'ETH Price + Stacked TVL — Rolling ATH', subtitle=subtitle, height=CHART_HEIGHT)
@@ -327,15 +313,15 @@ def plot_eth_vs_stacked_tvl_ath(df):
             bgcolor='rgba(10,22,40,0.0)', bordercolor='rgba(0,0,0,0)', borderwidth=0,
             font=dict(size=9, color=MIST),
             orientation='h', x=0.5, xanchor='center',
-            y=-0.11, yanchor='top',
+            y=-0.07, yanchor='top',
             tracegroupgap=0,
+            entrywidthmode='fraction', entrywidth=0.45,
         ),
-        margin=dict(l=40, r=20, t=80, b=95),
+        margin=dict(l=40, r=20, t=80, b=100),
         shapes=[],
     )
-    fig.update_yaxes(type='log', tickprefix='$', title_text='ETH Price (log)', row=1, col=1)
-    fig.update_yaxes(tickprefix='$', ticksuffix='B', title_text='TVL ($B)', row=2, col=1)
-    fig.update_xaxes(title_text='Date', row=2, col=1)
+    fig.update_yaxes(type='log', tickformat='$,.0f', title_text='', row=1, col=1)
+    fig.update_yaxes(tickprefix='$', ticksuffix='B', title_text='', row=2, col=1)
     return fig
 
 
