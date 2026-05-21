@@ -236,7 +236,7 @@ def plot_eth_vs_stacked_tvl_ath(df):
     fig.add_trace(go.Scatter(
         x=d.index, y=d['eth_ath'],
         mode='lines', line=dict(color=GOLD_LIT, width=1.2, dash='dot'),
-        name='ETH Rolling ATH', showlegend=True,
+        name='ETH ATH', showlegend=True,
         hovertemplate='%{x|%Y-%m-%d}<br>ETH ATH: $%{y:,.0f}<extra></extra>'
     ), row=1, col=1)
 
@@ -286,7 +286,7 @@ def plot_eth_vs_stacked_tvl_ath(df):
     fig.add_trace(go.Scatter(
         x=d.index, y=d['total_ath'] / 1e9,
         mode='lines', line=dict(color=WHITE, width=1.2, dash='dot'),
-        name='Total Secured ATH', showlegend=True,
+        name='Total ATH', showlegend=True,
         hovertemplate='%{x|%Y-%m-%d}<br>Total ATH: $%{y:.1f}B<extra></extra>'
     ), row=2, col=1)
 
@@ -315,7 +315,7 @@ def plot_eth_vs_stacked_tvl_ath(df):
             orientation='h', x=0.5, xanchor='center',
             y=-0.07, yanchor='top',
             tracegroupgap=0,
-            entrywidthmode='fraction', entrywidth=0.45,
+            entrywidthmode='fraction', entrywidth=0.30,
         ),
         margin=dict(l=40, r=20, t=80, b=100),
         shapes=[],
