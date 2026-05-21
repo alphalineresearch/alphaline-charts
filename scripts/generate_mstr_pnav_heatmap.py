@@ -108,7 +108,7 @@ def alphaline_layout(fig, title, height=CHART_HEIGHT, subtitle='',
                  xref='paper', yref='paper', x=1.0, y=-0.09,
                  xanchor='right', yanchor='top',
                  font=dict(family='Courier New, monospace', size=9, color=MIST),
-                 showarrow=False),                 showarrow=False),
+                 showarrow=False),
         ],
     )
     return fig
