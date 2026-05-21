@@ -369,9 +369,9 @@ def plot_model_compact(df, r2):
                  xref='paper', yref='paper', x=0.0, y=-0.04,
                  xanchor='left', yanchor='top',
                  font=dict(family='Courier New, monospace', size=8, color=STEEL), showarrow=False),
-            # Brand — top-right of chart, same row as title, never near legend
+            # Brand — top-right corner of the plot area itself (inside the chart box)
             dict(text='<b>ALPHALINE RESEARCH</b>',
-                 xref='paper', yref='paper', x=1.0, y=0.985,
+                 xref='x domain', yref='y domain', x=1.0, y=1.0,
                  xanchor='right', yanchor='top',
                  font=dict(family='Courier New, monospace', size=8, color=GOLD), showarrow=False),
         ],
