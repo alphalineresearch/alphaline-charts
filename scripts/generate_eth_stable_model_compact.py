@@ -369,10 +369,10 @@ def plot_model_compact(df, r2):
                  xref='paper', yref='paper', x=0.0, y=-0.04,
                  xanchor='left', yanchor='top',
                  font=dict(family='Courier New, monospace', size=8, color=STEEL), showarrow=False),
-            # Brand — below legend, left-aligned, clear of source and legend
+            # Brand — top-right of chart, same row as title, never near legend
             dict(text='<b>ALPHALINE RESEARCH</b>',
-                 xref='paper', yref='paper', x=0.0, y=-0.20,
-                 xanchor='left', yanchor='top',
+                 xref='paper', yref='paper', x=1.0, y=0.985,
+                 xanchor='right', yanchor='top',
                  font=dict(family='Courier New, monospace', size=8, color=GOLD), showarrow=False),
         ],
         xaxis=dict(gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5, zeroline=False,
