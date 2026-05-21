@@ -315,7 +315,7 @@ def plot_eth_vs_stacked_tvl_ath(df):
             orientation='h', x=0.5, xanchor='center',
             y=-0.07, yanchor='top',
             tracegroupgap=0,
-            entrywidthmode='fraction', entrywidth=0.30,
+            entrywidthmode='fraction', entrywidth=0.40,
         ),
         margin=dict(l=40, r=20, t=80, b=100),
         shapes=[],
