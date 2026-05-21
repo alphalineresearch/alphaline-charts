@@ -66,18 +66,22 @@ def hex_to_rgba(h, a=0.35):
 # ════════════════════════════════════════════
 # ALPHALINE CHART TEMPLATE
 # ════════════════════════════════════════════
-def alphaline_layout(fig, title, height=CHART_HEIGHT,
+def alphaline_layout(fig, title, height=CHART_HEIGHT, subtitle='',
                      source='alphalineresearch.com  |  Yahoo Finance · blockchain.info'):
     fig.update_layout(
         template='plotly_dark',
         paper_bgcolor=NAVY, plot_bgcolor=NAVY_MID,
         height=height, autosize=True,
         title=dict(
-            text=f'<span style="font-family:Georgia,serif; font-size:15px; color:{WHITE};">{title}</span>',
-            x=0.02, xanchor='left', y=0.98, yanchor='top'
+            text=(
+                f'<span style="font-family:Georgia,serif; font-size:15px; color:{WHITE};">{title}</span>' +
+                '<br><span style="font-family:\'Courier New\',monospace; font-size:8px; color:' + GOLD + ';">ALPHALINE RESEARCH</span>' +
+                (f'<br><span style="font-family:\'Courier New\',monospace; font-size:9px; color:' + MIST + ';">{subtitle}</span>' if subtitle else '')
+            ),
+            x=0.02, xanchor='left', y=0.985, yanchor='top'
         ),
         font=dict(family='Courier New, monospace', color=MIST, size=10),
-        margin=dict(l=55, r=80, t=65, b=80),
+        margin=dict(l=55, r=80, t=80, b=80),
         xaxis=dict(gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5, zeroline=False,
                    showspikes=True, spikecolor=MIST, spikethickness=1, spikedash='dot'),
         yaxis=dict(gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5, zeroline=False),
@@ -87,9 +91,7 @@ def alphaline_layout(fig, title, height=CHART_HEIGHT,
             dict(text=f'Source: {source}', xref='paper', yref='paper',
                  x=1.0, y=-0.09, xanchor='right', yanchor='top',
                  font=dict(family='Courier New, monospace', size=9, color=MIST), showarrow=False),
-            dict(text='<b>ALPHALINE RESEARCH</b>', xref='paper', yref='paper',
-                 x=0.0, y=-0.09, xanchor='left', yanchor='top',
-                 font=dict(family='Courier New, monospace', size=9, color=GOLD), showarrow=False),
+
         ],
     )
     return fig
@@ -348,10 +350,7 @@ def plot_rv_proxy(df, has_cost):
                  xref='paper', yref='paper', x=1.0, y=-0.09,
                  xanchor='right', yanchor='top', showarrow=False,
                  font=dict(family='Courier New, monospace', size=9, color=MIST)),
-            dict(text='<b>ALPHALINE RESEARCH</b>',
-                 xref='paper', yref='paper', x=0.0, y=-0.09,
-                 xanchor='left', yanchor='top', showarrow=False,
-                 font=dict(family='Courier New, monospace', size=9, color=GOLD)),
+
         ]
     )
     fig.update_yaxes(type='log', tickprefix='$', title_text='BTC Price (log)', row=1, col=1)

@@ -50,7 +50,7 @@ CHART_HEIGHT = 750
 # ════════════════════════════════════════════
 # ALPHALINE CHART TEMPLATE
 # ════════════════════════════════════════════
-def alphaline_layout(fig, title, height=CHART_HEIGHT,
+def alphaline_layout(fig, title, height=CHART_HEIGHT, subtitle='',
                      source='alphalineresearch.com  |  Yahoo Finance  |  DeFiLlama'):
     fig.update_layout(
         template='plotly_dark',
@@ -58,11 +58,15 @@ def alphaline_layout(fig, title, height=CHART_HEIGHT,
         height=height, autosize=True,
         showlegend=False,
         title=dict(
-            text=f'<span style="font-family:Georgia,serif; font-size:15px; color:{WHITE};">{title}</span>',
-            x=0.02, xanchor='left', y=0.98, yanchor='top'
+            text=(
+                f'<span style="font-family:Georgia,serif; font-size:15px; color:{WHITE};">{title}</span>' +
+                '<br><span style="font-family:\'Courier New\',monospace; font-size:8px; color:' + GOLD + ';">ALPHALINE RESEARCH</span>' +
+                (f'<br><span style="font-family:\'Courier New\',monospace; font-size:9px; color:' + MIST + ';">{subtitle}</span>' if subtitle else '')
+            ),
+            x=0.02, xanchor='left', y=0.985, yanchor='top'
         ),
         font=dict(family='Courier New, monospace', color=MIST, size=10),
-        margin=dict(l=60, r=80, t=65, b=80),
+        margin=dict(l=60, r=80, t=80, b=80),
         xaxis=dict(gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5, zeroline=False,
                    showspikes=True, spikecolor=MIST, spikethickness=1, spikedash='dot'),
         xaxis2=dict(gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5, zeroline=False),
@@ -74,9 +78,7 @@ def alphaline_layout(fig, title, height=CHART_HEIGHT,
             dict(text=f'Source: {source}', xref='paper', yref='paper',
                  x=1.0, y=-0.09, xanchor='right', yanchor='top',
                  font=dict(family='Courier New, monospace', size=9, color=MIST), showarrow=False),
-            dict(text='<b>ALPHALINE RESEARCH</b>', xref='paper', yref='paper',
-                 x=0.0, y=-0.09, xanchor='left', yanchor='top',
-                 font=dict(family='Courier New, monospace', size=9, color=GOLD), showarrow=False),
+
         ],
     )
     return fig
@@ -329,7 +331,7 @@ def plot_eth_vs_stacked_tvl_ath(df):
                     font=dict(size=9, color=MIST),
                     orientation='h', x=0.5, y=1.02,
                     xanchor='center', yanchor='bottom'),
-        margin=dict(l=60, r=80, t=65, b=80),
+        margin=dict(l=60, r=80, t=80, b=80),
         shapes=[],
     )
     fig.update_yaxes(type='log', tickprefix='$', title_text='ETH Price (log)', row=1, col=1)
