@@ -81,7 +81,7 @@ def alphaline_layout(fig, title, height=CHART_HEIGHT, subtitle='',
             x=0.02, xanchor='left', y=0.985, yanchor='top'
         ),
         font=dict(family='Courier New, monospace', color=MIST, size=10),
-        margin=dict(l=60, r=80, t=80, b=80),
+        margin=dict(l=40, r=20, t=80, b=95),
         xaxis=dict(gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5, zeroline=False,
                    showspikes=True, spikecolor=MIST, spikethickness=1, spikedash='dot'),
         xaxis2=dict(gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5, zeroline=False),
@@ -91,8 +91,8 @@ def alphaline_layout(fig, title, height=CHART_HEIGHT, subtitle='',
                         font=dict(family='Courier New, monospace', size=11, color=WHITE)),
         annotations=[
             dict(text=f'Source: {source}', xref='paper', yref='paper',
-                 x=1.0, y=-0.09, xanchor='right', yanchor='top',
-                 font=dict(family='Courier New, monospace', size=9, color=MIST), showarrow=False),
+                 x=0.0, y=-0.04, xanchor='left', yanchor='top',
+                 font=dict(family='Courier New, monospace', size=8, color=STEEL), showarrow=False),
 
         ],
     )
@@ -286,8 +286,8 @@ def plot_tvl_momentum(df, lookback=30):
     latest_tvl = d['total_secured_usd'].iloc[-1]
     alphaline_layout(
         fig,
-        f'ETH PRICE  +  TOTAL VALUE LOCKED MOMENTUM  |  PAST 30 DAYS'
-        f'  \u2014  Total TVL: ${latest_tvl/1e9:.1f}B',
+        'ETH Price + TVL Momentum',
+        subtitle=f'Past 30 Days  ·  Total TVL: ${latest_tvl/1e9:.1f}B',
         height=700
     )
 
@@ -312,12 +312,6 @@ def plot_tvl_momentum(df, lookback=30):
 
     fig.update_layout(
         showlegend=True,
-        legend=dict(
-            orientation='h', yanchor='bottom', y=1.02,
-            xanchor='center', x=0.5,
-            font=dict(family='Courier New, monospace', size=9, color=MIST),
-            bgcolor='rgba(10,22,40,0.8)', bordercolor=STEEL, borderwidth=1
-        )
     )
     fig.update_yaxes(title_text='ETH Price ($)',
                      title_font=dict(size=9, color=MIST), row=1, col=1)

@@ -77,21 +77,24 @@ def alphaline_layout(fig, title, height=CHART_HEIGHT, subtitle='',
             x=0.02, xanchor='left', y=0.985, yanchor='top'
         ),
         font=dict(family='Courier New, monospace', color=MIST, size=10),
-        margin=dict(l=60, r=80, t=80, b=80),
+        margin=dict(l=40, r=20, t=80, b=95),
         xaxis=dict(gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5, zeroline=False,
                    showspikes=True, spikecolor=MIST, spikethickness=1, spikedash='dot'),
         yaxis=dict(gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5, zeroline=False),
         hoverlabel=dict(bgcolor=NAVY_MID, bordercolor=GOLD,
                         font=dict(family='Courier New, monospace', size=11, color=WHITE)),
-        legend=dict(bgcolor='rgba(10,22,40,0.8)', bordercolor=STEEL, borderwidth=1,
-                    font=dict(size=9, color=MIST),
-                    orientation='h', x=0.5, y=1.02,
-                    xanchor='center', yanchor='bottom'),
+        legend=dict(
+            bgcolor='rgba(10,22,40,0.0)', bordercolor='rgba(0,0,0,0)', borderwidth=0,
+            font=dict(size=9, color=MIST),
+            orientation='h', x=0.5, xanchor='center',
+            y=-0.11, yanchor='top',
+            tracegroupgap=0,
+        ),
         annotations=[
             dict(text=f'Source: {source}',
-                 xref='paper', yref='paper', x=1.0, y=-0.09,
-                 xanchor='right', yanchor='top',
-                 font=dict(family='Courier New, monospace', size=9, color=MIST),
+                 xref='paper', yref='paper', x=0.0, y=-0.04,
+                 xanchor='left', yanchor='top',
+                 font=dict(family='Courier New, monospace', size=8, color=STEEL),
                  showarrow=False),
         ],
     )
@@ -281,11 +284,8 @@ def plot_price_rsi(df: pd.DataFrame, ticker: str, price_color: str, rsi_range=No
         row=2, col=1
     )
 
-    title = (
-        f'{ticker} — Weekly Price & RSI(14)  |  '
-        f'RSI: {rsi_now:.1f}  ·  {pct_now:.0f}th pct  ·  [{regime_label}]'
-    )
-    alphaline_layout(fig, title, height=CHART_HEIGHT)
+    subtitle = f'RSI: {rsi_now:.1f}  ·  {pct_now:.0f}th pct  ·  {regime_label}'
+    alphaline_layout(fig, f'{ticker} — Weekly RSI(14)', subtitle=subtitle, height=CHART_HEIGHT)
     fig.update_layout(
         showlegend=True,
         legend=dict(orientation='h', x=0.5, y=1.02, xanchor='center', yanchor='bottom',
@@ -418,11 +418,8 @@ def plot_annual_rsi(df: pd.DataFrame, ticker: str, price_color: str, rsi_range=N
         row=2, col=1
     )
 
-    title = (
-        f'{ticker} — Annual RSI(52) Cycle  |  '
-        f'RSI(52): {rsi_now:.1f}  ·  {pct_now:.0f}th pct  ·  [{regime_label}]'
-    )
-    alphaline_layout(fig, title, height=CHART_HEIGHT)
+    subtitle = f'RSI(52): {rsi_now:.1f}  ·  {pct_now:.0f}th pct  ·  {regime_label}'
+    alphaline_layout(fig, f'{ticker} — Annual RSI(52) Cycle', subtitle=subtitle, height=CHART_HEIGHT)
     fig.update_layout(
         showlegend=True,
         legend=dict(x=0.01, y=0.99, xanchor='left', yanchor='top',

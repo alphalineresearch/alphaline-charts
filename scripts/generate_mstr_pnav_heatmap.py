@@ -93,21 +93,24 @@ def alphaline_layout(fig, title, height=CHART_HEIGHT, subtitle='',
             x=0.02, xanchor='left', y=0.985, yanchor='top'
         ),
         font=dict(family='Courier New, monospace', color=MIST, size=10),
-        margin=dict(l=60, r=80, t=80, b=80),
+        margin=dict(l=40, r=20, t=80, b=95),
         xaxis=dict(gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5, zeroline=False,
                    showspikes=True, spikecolor=MIST, spikethickness=1, spikedash='dot'),
         yaxis=dict(gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5, zeroline=False),
         hoverlabel=dict(bgcolor=NAVY_MID, bordercolor=GOLD,
                         font=dict(family='Courier New, monospace', size=11, color=WHITE)),
-        legend=dict(bgcolor='rgba(10,22,40,0.8)', bordercolor=STEEL, borderwidth=1,
-                    font=dict(size=9, color=MIST),
-                    orientation='h', x=0.5, y=1.02,
-                    xanchor='center', yanchor='bottom'),
+        legend=dict(
+            bgcolor='rgba(10,22,40,0.0)', bordercolor='rgba(0,0,0,0)', borderwidth=0,
+            font=dict(size=9, color=MIST),
+            orientation='h', x=0.5, xanchor='center',
+            y=-0.11, yanchor='top',
+            tracegroupgap=0,
+        ),
         annotations=[
             dict(text=f'Source: {source}',
-                 xref='paper', yref='paper', x=1.0, y=-0.09,
-                 xanchor='right', yanchor='top',
-                 font=dict(family='Courier New, monospace', size=9, color=MIST),
+                 xref='paper', yref='paper', x=0.0, y=-0.04,
+                 xanchor='left', yanchor='top',
+                 font=dict(family='Courier New, monospace', size=8, color=STEEL),
                  showarrow=False),
         ],
     )
@@ -494,11 +497,8 @@ def plot_heatmap_chart(df, cost_series, has_cost, pnav_mu, pnav_std):
 
     # ── Layout ──────────────────────────────────────────────
     cost_note = '' if has_cost else '  (cost unavailable)'
-    title = (
-        f'MSTR P/NAV — Z-Score Heatmap + BTC Production Cost{cost_note}  |  '
-        f'{regime_now}  ·  {pnav_now:.2f}x  ·  {zscore_now:+.1f}s'
-    )
-    alphaline_layout(fig, title, height=CHART_HEIGHT)
+    subtitle = f'{regime_now}  ·  P/NAV: {pnav_now:.2f}x  ·  Z: {zscore_now:+.1f}σ'
+    alphaline_layout(fig, f'MSTR P/NAV — Z-Score Heatmap{cost_note}', subtitle=subtitle, height=CHART_HEIGHT)
     fig.update_layout(
         bargap=0,
         showlegend=True,

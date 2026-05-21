@@ -71,20 +71,23 @@ def alphaline_layout(fig, title, height=CHART_HEIGHT, subtitle='',
             x=0.02, xanchor='left', y=0.985, yanchor='top'
         ),
         font=dict(family='Courier New, monospace', color=MIST, size=10),
-        margin=dict(l=60, r=80, t=80, b=80),
+        margin=dict(l=40, r=20, t=80, b=95),
         xaxis=dict(gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5, zeroline=False,
                    showspikes=True, spikecolor=MIST, spikethickness=1, spikedash='dot'),
         yaxis=dict(gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5, zeroline=False),
         hoverlabel=dict(bgcolor=NAVY_MID, bordercolor=GOLD,
                         font=dict(family='Courier New, monospace', size=11, color=WHITE)),
-        legend=dict(bgcolor='rgba(10,22,40,0.8)', bordercolor=STEEL, borderwidth=1,
-                    font=dict(size=9, color=MIST),
-                    orientation='h', x=0.5, y=1.02,
-                    xanchor='center', yanchor='bottom'),
+        legend=dict(
+            bgcolor='rgba(10,22,40,0.0)', bordercolor='rgba(0,0,0,0)', borderwidth=0,
+            font=dict(size=9, color=MIST),
+            orientation='h', x=0.5, xanchor='center',
+            y=-0.11, yanchor='top',
+            tracegroupgap=0,
+        ),
         annotations=[
             dict(text=f'Source: {source}', xref='paper', yref='paper',
-                 x=1.0, y=-0.09, xanchor='right', yanchor='top',
-                 font=dict(family='Courier New, monospace', size=9, color=MIST), showarrow=False),
+                 x=0.0, y=-0.04, xanchor='left', yanchor='top',
+                 font=dict(family='Courier New, monospace', size=8, color=STEEL), showarrow=False),
 
         ],
     )
@@ -397,8 +400,9 @@ def plot_eth_proxy_signal(df, sig_all):
         ), row=2, col=1)
 
     # Layout
-    title = 'ETH RV7/RV30 Proxy Signal  |  ● Confluence = Vol Surprise + DD + Near Model'
-    alphaline_layout(fig, title, height=CHART_HEIGHT)
+    title    = 'ETH RV7/RV30 Proxy Signal'
+    subtitle = '● Confluence = Vol Surprise + Drawdown + Near Model Price'
+    alphaline_layout(fig, title, subtitle=subtitle, height=CHART_HEIGHT)
     fig.update_layout(
         showlegend=True,
         legend=dict(orientation='h', x=0.5, y=1.02, xanchor='center', yanchor='bottom',

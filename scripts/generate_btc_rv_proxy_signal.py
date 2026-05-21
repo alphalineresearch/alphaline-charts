@@ -81,7 +81,7 @@ def alphaline_layout(fig, title, height=CHART_HEIGHT, subtitle='',
             x=0.02, xanchor='left', y=0.985, yanchor='top'
         ),
         font=dict(family='Courier New, monospace', color=MIST, size=10),
-        margin=dict(l=55, r=80, t=80, b=80),
+        margin=dict(l=40, r=20, t=80, b=95),
         xaxis=dict(gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5, zeroline=False,
                    showspikes=True, spikecolor=MIST, spikethickness=1, spikedash='dot'),
         yaxis=dict(gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5, zeroline=False),
@@ -89,8 +89,8 @@ def alphaline_layout(fig, title, height=CHART_HEIGHT, subtitle='',
                         font=dict(family='Courier New, monospace', size=11, color=WHITE)),
         annotations=[
             dict(text=f'Source: {source}', xref='paper', yref='paper',
-                 x=1.0, y=-0.09, xanchor='right', yanchor='top',
-                 font=dict(family='Courier New, monospace', size=9, color=MIST), showarrow=False),
+                 x=0.0, y=-0.04, xanchor='left', yanchor='top',
+                 font=dict(family='Courier New, monospace', size=8, color=STEEL), showarrow=False),
 
         ],
     )
@@ -335,7 +335,8 @@ def plot_rv_proxy(df, has_cost):
         ), row=2, col=1)
 
     alphaline_layout(fig,
-        'BTC RV7/RV30 Proxy Signal (2014–Present)  |  ● Confluence = Vol Surprise + DD + Near Cost',
+        'BTC RV7/RV30 Proxy Signal',
+        subtitle='● Confluence = Vol Surprise + Drawdown + Near Production Cost',
         height=CHART_HEIGHT)
 
     fig.update_layout(
