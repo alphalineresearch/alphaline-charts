@@ -327,12 +327,13 @@ def plot_model_compact(df, r2):
         f'R²: {r2:.2f}'
     )
 
-    # Title contains both the chart name and the stats subtitle as a two-line HTML block.
-    # This guarantees the subtitle always sits in the top margin, never inside the plot.
+    # Top margin (t=60): tight so plot starts close under the two-line title.
+    # title y=0.985 + yanchor='top' means both lines render inside the margin without clipping.
     #
-    # Bottom margin layout (b=80):
-    #   y=-0.04  source text (left)  |  ALPHALINE RESEARCH (right) — same row, no overlap
-    #   y=-0.10  legend (centred, via legend dict)
+    # Bottom margin layout (b=95):
+    #   y=-0.04  source text  (left, just below plot)
+    #   y=-0.11  legend        (centred, via legend dict)
+    #   y=-0.20  ALPHALINE RESEARCH  (left, below legend, clear of both)
 
     title_html = (
         f'<span style="font-family:Georgia,serif; font-size:15px; color:{WHITE};">'
@@ -347,10 +348,10 @@ def plot_model_compact(df, r2):
         height=CHART_HEIGHT, autosize=True,
         title=dict(
             text=title_html,
-            x=0.02, xanchor='left', y=0.99, yanchor='top'
+            x=0.02, xanchor='left', y=0.985, yanchor='top'
         ),
         font=dict(family='Courier New, monospace', color=MIST, size=10),
-        margin=dict(l=50, r=24, t=90, b=80),
+        margin=dict(l=50, r=24, t=60, b=95),
         hoverlabel=dict(bgcolor=NAVY_MID, bordercolor=GOLD,
                         font=dict(family='Courier New, monospace', size=11, color=WHITE)),
         showlegend=True,
@@ -358,20 +359,20 @@ def plot_model_compact(df, r2):
             bgcolor='rgba(10,22,40,0.0)', bordercolor='rgba(0,0,0,0)', borderwidth=0,
             font=dict(size=9, color=MIST),
             orientation='h', x=0.5, xanchor='center',
-            y=-0.10, yanchor='top',
+            y=-0.11, yanchor='top',
             tracegroupgap=0,
         ),
         bargap=0,
         annotations=[
-            # Source — left side of footer row
+            # Source — just below plot
             dict(text='alphalineresearch.com  ·  Yahoo Finance  ·  DeFiLlama',
                  xref='paper', yref='paper', x=0.0, y=-0.04,
                  xanchor='left', yanchor='top',
                  font=dict(family='Courier New, monospace', size=8, color=STEEL), showarrow=False),
-            # Brand — right side of same footer row (no overlap with legend)
+            # Brand — below legend, left-aligned, clear of source and legend
             dict(text='<b>ALPHALINE RESEARCH</b>',
-                 xref='paper', yref='paper', x=1.0, y=-0.04,
-                 xanchor='right', yanchor='top',
+                 xref='paper', yref='paper', x=0.0, y=-0.20,
+                 xanchor='left', yanchor='top',
                  font=dict(family='Courier New, monospace', size=8, color=GOLD), showarrow=False),
         ],
         xaxis=dict(gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5, zeroline=False,
