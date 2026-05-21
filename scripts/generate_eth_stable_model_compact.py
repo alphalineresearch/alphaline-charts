@@ -339,6 +339,9 @@ def plot_model_compact(df, r2):
         f'<span style="font-family:Georgia,serif; font-size:15px; color:{WHITE};">'
         f'ETH vs Stablecoin Model</span>'
         f'<br>'
+        f'<span style="font-family:\'Courier New\',monospace; font-size:8px; color:{GOLD};">'
+        f'ALPHALINE RESEARCH</span>'
+        f'<br>'
         f'<span style="font-family:\'Courier New\',monospace; font-size:9px; color:{MIST};">'
         f'{stats}</span>'
     )
@@ -351,7 +354,7 @@ def plot_model_compact(df, r2):
             x=0.02, xanchor='left', y=0.985, yanchor='top'
         ),
         font=dict(family='Courier New, monospace', color=MIST, size=10),
-        margin=dict(l=50, r=24, t=60, b=95),
+        margin=dict(l=50, r=24, t=75, b=95),
         hoverlabel=dict(bgcolor=NAVY_MID, bordercolor=GOLD,
                         font=dict(family='Courier New, monospace', size=11, color=WHITE)),
         showlegend=True,
@@ -369,11 +372,6 @@ def plot_model_compact(df, r2):
                  xref='paper', yref='paper', x=0.0, y=-0.04,
                  xanchor='left', yanchor='top',
                  font=dict(family='Courier New, monospace', size=8, color=STEEL), showarrow=False),
-            # Brand — top-right corner of the plot area itself (inside the chart box)
-            dict(text='<b>ALPHALINE RESEARCH</b>',
-                 xref='x domain', yref='y domain', x=1.0, y=1.0,
-                 xanchor='right', yanchor='top',
-                 font=dict(family='Courier New, monospace', size=8, color=GOLD), showarrow=False),
         ],
         xaxis=dict(gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5, zeroline=False,
                    showspikes=True, spikecolor=MIST, spikethickness=1, spikedash='dot'),
