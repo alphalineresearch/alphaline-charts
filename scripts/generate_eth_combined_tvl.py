@@ -61,14 +61,14 @@ def alphaline_layout(fig, title, height=CHART_HEIGHT, subtitle='',
         showlegend=False,
         title=dict(
             text=(
-                f'<span style="font-family:Georgia,serif; font-size:15px; color:{WHITE};">{title}</span>' +
-                '<br><span style="font-family:\'Courier New\',monospace; font-size:8px; color:' + GOLD + ';">ALPHALINE RESEARCH</span>' +
-                (f'<br><span style="font-family:\'Courier New\',monospace; font-size:9px; color:' + MIST + ';">{subtitle}</span>' if subtitle else '')
+                f'<span style="font-family:Georgia,serif; font-size:15px; color:{WHITE};">{title}</span>'
+                f'<br><span style="font-family:Courier New,monospace; font-size:8px; color:{GOLD};">ALPHALINE RESEARCH</span>'
+                + (f'<br><span style="font-family:Courier New,monospace; font-size:9px; color:{MIST};">{subtitle}</span>' if subtitle else '')
             ),
             x=0.02, xanchor='left', y=0.985, yanchor='top'
         ),
         font=dict(family='Courier New, monospace', color=MIST, size=10),
-        margin=dict(l=40, r=20, t=80, b=95),
+        margin=dict(l=40, r=20, t=80, b=100),
         xaxis=dict(gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5, zeroline=False,
                    showspikes=True, spikecolor=MIST, spikethickness=1, spikedash='dot'),
         xaxis2=dict(gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5, zeroline=False),
@@ -78,7 +78,7 @@ def alphaline_layout(fig, title, height=CHART_HEIGHT, subtitle='',
                         font=dict(family='Courier New, monospace', size=11, color=WHITE)),
         annotations=[
             dict(text=f'Source: {source}', xref='paper', yref='paper',
-                 x=0.0, y=-0.04, xanchor='left', yanchor='top',
+                 x=0.0, y=-0.03, xanchor='left', yanchor='top',
                  font=dict(family='Courier New, monospace', size=8, color=STEEL), showarrow=False),
 
         ],
@@ -350,12 +350,9 @@ def plot_model_compact(df, r2_a):
 
     for level, color in [(2, RED_LIT), (1, 'rgba(214,68,68,0.6)'),
                          (-1, 'rgba(42,191,122,0.6)'), (-2, GREEN_LIT)]:
-        fig.add_hline(y=level, line_color=color, line_width=0.7,
-                      line_dash='dot', row=3, col=1)
         fig.add_annotation(x=model_df.index[-1], y=level,
             text=f'  {level:+d}σ', showarrow=False, xanchor='left',
-            font=dict(family='Courier New, monospace', size=8, color=color))
-    fig.add_hline(y=0, line_color=STEEL, line_width=0.8, row=3, col=1)
+            font=dict(family='Courier New, monospace', size=8, color=color), row=3, col=1)
 
     fig.add_annotation(
         x=model_df.index[-1], y=zscore.iloc[-1],
@@ -381,12 +378,11 @@ def plot_model_compact(df, r2_a):
             y=-0.11, yanchor='top',
             tracegroupgap=0,
         ),
-        margin=dict(l=40, r=20, t=80, b=95),
+        margin=dict(l=40, r=20, t=80, b=100),
     )
-    fig.update_yaxes(type='log', tickprefix='$', title_text='ETH Price (log)', row=1, col=1)
+    fig.update_yaxes(type='log', tickformat='$,.0f', title_text='', row=1, col=1)
     fig.update_yaxes(title_text='Secured/Mcap', row=2, col=1)
     fig.update_yaxes(title_text='Z-score (σ)', row=3, col=1)
-    fig.update_xaxes(title_text='Date', row=3, col=1)
     return fig
 
 

@@ -64,9 +64,9 @@ def alphaline_layout(fig, title, height=CHART_HEIGHT, subtitle='',
         height=height, autosize=True,
         title=dict(
             text=(
-                f'<span style="font-family:Georgia,serif; font-size:15px; color:{WHITE};">{title}</span>' +
-                '<br><span style="font-family:\'Courier New\',monospace; font-size:8px; color:' + GOLD + ';">ALPHALINE RESEARCH</span>' +
-                (f'<br><span style="font-family:\'Courier New\',monospace; font-size:9px; color:' + MIST + ';">{subtitle}</span>' if subtitle else '')
+                f'<span style="font-family:Georgia,serif; font-size:15px; color:{WHITE};">{title}</span>'
+                f'<br><span style="font-family:Courier New,monospace; font-size:8px; color:{GOLD};">ALPHALINE RESEARCH</span>'
+                + (f'<br><span style="font-family:Courier New,monospace; font-size:9px; color:{MIST};">{subtitle}</span>' if subtitle else '')
             ),
             x=0.02, xanchor='left', y=0.985, yanchor='top'
         ),
