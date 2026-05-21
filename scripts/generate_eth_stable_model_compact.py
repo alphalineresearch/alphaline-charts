@@ -321,31 +321,36 @@ def plot_model_compact(df, r2):
         )
 
     latest  = model_df.iloc[-1]
-    title    = 'ETH vs Stablecoin Model'
     stats    = (
         f'Price: ${latest["eth_price"]:,.0f}  ·  '
         f'Model: ${latest["eth_model"]:,.0f}  ·  '
         f'R²: {r2:.2f}'
     )
 
-    # Top margin (t=90) holds two rows above the plot:
-    #   title  at y=0.99  (via title dict)
-    #   stats  at y=0.955 (annotation, just below title)
+    # Title contains both the chart name and the stats subtitle as a two-line HTML block.
+    # This guarantees the subtitle always sits in the top margin, never inside the plot.
     #
-    # Bottom margin (b=100) holds three rows below the plot:
-    #   y=-0.06  source text
-    #   y=-0.14  legend (centred, via legend dict)
-    #   y=-0.26  ALPHALINE RESEARCH  — well clear of legend
+    # Bottom margin layout (b=80):
+    #   y=-0.04  source text (left)  |  ALPHALINE RESEARCH (right) — same row, no overlap
+    #   y=-0.10  legend (centred, via legend dict)
+
+    title_html = (
+        f'<span style="font-family:Georgia,serif; font-size:15px; color:{WHITE};">'
+        f'ETH vs Stablecoin Model</span>'
+        f'<br>'
+        f'<span style="font-family:\'Courier New\',monospace; font-size:9px; color:{MIST};">'
+        f'{stats}</span>'
+    )
 
     fig.update_layout(
         template='plotly_dark', paper_bgcolor=NAVY, plot_bgcolor=NAVY_MID,
         height=CHART_HEIGHT, autosize=True,
         title=dict(
-            text=f'<span style="font-family:Georgia,serif; font-size:15px; color:{WHITE};">{title}</span>',
+            text=title_html,
             x=0.02, xanchor='left', y=0.99, yanchor='top'
         ),
         font=dict(family='Courier New, monospace', color=MIST, size=10),
-        margin=dict(l=50, r=24, t=90, b=100),
+        margin=dict(l=50, r=24, t=90, b=80),
         hoverlabel=dict(bgcolor=NAVY_MID, bordercolor=GOLD,
                         font=dict(family='Courier New, monospace', size=11, color=WHITE)),
         showlegend=True,
@@ -353,25 +358,20 @@ def plot_model_compact(df, r2):
             bgcolor='rgba(10,22,40,0.0)', bordercolor='rgba(0,0,0,0)', borderwidth=0,
             font=dict(size=9, color=MIST),
             orientation='h', x=0.5, xanchor='center',
-            y=-0.14, yanchor='top',
+            y=-0.10, yanchor='top',
             tracegroupgap=0,
         ),
         bargap=0,
         annotations=[
-            # Stats row — below title in top margin
-            dict(text=stats,
-                 xref='paper', yref='paper', x=0.02, y=0.955,
-                 xanchor='left', yanchor='top',
-                 font=dict(family='Courier New, monospace', size=9, color=MIST), showarrow=False),
-            # Source — first row below plot, where stats used to be
+            # Source — left side of footer row
             dict(text='alphalineresearch.com  ·  Yahoo Finance  ·  DeFiLlama',
-                 xref='paper', yref='paper', x=0.0, y=-0.06,
+                 xref='paper', yref='paper', x=0.0, y=-0.04,
                  xanchor='left', yanchor='top',
                  font=dict(family='Courier New, monospace', size=8, color=STEEL), showarrow=False),
-            # Brand — below legend, enough gap to never overlap
+            # Brand — right side of same footer row (no overlap with legend)
             dict(text='<b>ALPHALINE RESEARCH</b>',
-                 xref='paper', yref='paper', x=0.0, y=-0.26,
-                 xanchor='left', yanchor='top',
+                 xref='paper', yref='paper', x=1.0, y=-0.04,
+                 xanchor='right', yanchor='top',
                  font=dict(family='Courier New, monospace', size=8, color=GOLD), showarrow=False),
         ],
         xaxis=dict(gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5, zeroline=False,
