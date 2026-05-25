@@ -72,7 +72,7 @@ def alphaline_layout(fig, title, height=CHART_HEIGHT, subtitle='',
             x=0.02, xanchor='left', y=0.985, yanchor='top'
         ),
         font=dict(family='Courier New, monospace', color=MIST, size=10),
-        margin=dict(l=60, r=80, t=80, b=95),
+        margin=dict(l=40, r=55, t=80, b=110),
         xaxis=dict(gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5, zeroline=False,
                    showspikes=True, spikecolor=MIST, spikethickness=1, spikedash='dot'),
         xaxis2=dict(gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5, zeroline=False),
@@ -82,7 +82,7 @@ def alphaline_layout(fig, title, height=CHART_HEIGHT, subtitle='',
                         font=dict(family='Courier New, monospace', size=11, color=WHITE)),
         annotations=[
             dict(text=f'Source: {source}', xref='paper', yref='paper',
-                 x=0.0, y=-0.04, xanchor='left', yanchor='top',
+                 x=0.0, y=-0.09, xanchor='left', yanchor='top',
                  font=dict(family='Courier New, monospace', size=8, color=STEEL), showarrow=False),
         ],
     )
@@ -349,10 +349,9 @@ def plot_model_zscore(df, r2):
     subtitle = (
         f'ETH: ${latest["eth_price"]:,.0f}  '
         f'Model: ${latest["eth_model"]:,.0f}  '
-        f'Z-score: {latest["zscore"]:+.2f}σ  '
         f'R²={r2:.3f}'
     )
-    alphaline_layout(fig, 'ETH Combined TVL Model  |  Z-score Under/Over', subtitle=subtitle)
+    alphaline_layout(fig, 'ETH Combined TVL Model  |  Z-score', subtitle=subtitle)
 
     fig.update_layout(
         showlegend=True,
@@ -374,7 +373,7 @@ def plot_model_zscore(df, r2):
         row=1, col=1
     )
     fig.update_yaxes(title_text='Z-score (σ)', row=2, col=1)
-    fig.update_xaxes(title_text='Date', row=2, col=1)
+    fig.update_xaxes(title_text='', row=2, col=1)
     return fig
 
 
