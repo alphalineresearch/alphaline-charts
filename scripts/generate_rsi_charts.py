@@ -48,9 +48,10 @@ GOLD_LIT  = '#ECC96A'
 WHITE     = '#F8FAFB'
 MIST      = '#7A8F9F'
 STEEL     = '#374D61'
-AMBER     = '#C87820'
-GREEN_LIT = '#2ABF7A'
-RED_LIT   = '#D64444'
+AMBER      = '#C87820'
+CORNFLOWER = '#4A9EDB'
+GREEN_LIT  = '#2ABF7A'
+RED_LIT    = '#D64444'
 
 CHART_WIDTH  = 1100
 CHART_HEIGHT = 820
@@ -129,15 +130,15 @@ def build_episodes(mask_s, gap_weeks=1):
     return episodes
 
 def assign_rsi_colors(pct_series, slope_series):
-    """4-state color scheme: GREEN/AMBER (OS), GOLD_LIT/RED_LIT (OB), STEEL (neutral)."""
+    """4-state color scheme: GREEN/CORNFLOWER (OS), AMBER/RED_LIT (OB), STEEL (neutral)."""
     colors = []
     for pct, slope in zip(pct_series, slope_series):
         if pd.isna(pct) or pd.isna(slope):
             colors.append(STEEL)
         elif pct <= PCT_RARE_OS:
-            colors.append(GREEN_LIT if slope > 0 else AMBER)
+            colors.append(GREEN_LIT if slope > 0 else CORNFLOWER)
         elif pct >= PCT_RARE_OB:
-            colors.append(RED_LIT if slope < 0 else GOLD_LIT)
+            colors.append(RED_LIT if slope < 0 else AMBER)
         else:
             colors.append(STEEL)
     return colors
