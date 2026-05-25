@@ -313,14 +313,20 @@ def plot_eth_vs_stacked_tvl_ath(df):
             bgcolor='rgba(10,22,40,0.0)', bordercolor='rgba(0,0,0,0)', borderwidth=0,
             font=dict(size=9, color=MIST),
             orientation='h', x=0.5, xanchor='center',
-            y=-0.07, yanchor='top',
+            y=-0.11, yanchor='top',
             tracegroupgap=0,
             entrywidthmode='fraction', entrywidth=0.40,
         ),
         margin=dict(l=40, r=20, t=80, b=100),
         shapes=[],
     )
-    fig.update_yaxes(type='log', tickformat='$,.0f', title_text='', row=1, col=1)
+    fig.update_yaxes(
+        type='log',
+        tickmode='array',
+        tickvals=[100, 300, 1_000, 3_000, 10_000, 30_000],
+        ticktext=['$0.1K', '$0.3K', '$1K', '$3K', '$10K', '$30K'],
+        title_text='', row=1, col=1
+    )
     fig.update_yaxes(tickprefix='$', ticksuffix='B', title_text='', row=2, col=1)
     return fig
 

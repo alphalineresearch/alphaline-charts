@@ -408,11 +408,17 @@ def plot_eth_proxy_signal(df, sig_all):
         legend=dict(bgcolor='rgba(10,22,40,0.0)', bordercolor='rgba(0,0,0,0)', borderwidth=0,
                     font=dict(size=9, color=MIST),
                     orientation='h', x=0.5, xanchor='center',
-                    y=-0.07, yanchor='top', tracegroupgap=0),
+                    y=-0.11, yanchor='top', tracegroupgap=0),
     )
-    fig.update_yaxes(type='log', tickprefix='$', title_text='ETH Price (log)', row=1, col=1)
+    fig.update_yaxes(
+        type='log',
+        tickmode='array',
+        tickvals=[100, 300, 1_000, 3_000, 10_000, 30_000],
+        ticktext=['$0.1K', '$0.3K', '$1K', '$3K', '$10K', '$30K'],
+        title_text='ETH Price (log)', row=1, col=1
+    )
     fig.update_yaxes(title_text='RV7/RV30 ratio', row=2, col=1)
-    fig.update_xaxes(title_text='Date', row=2, col=1)
+    fig.update_xaxes(title_text='', row=2, col=1)
     return fig
 
 
