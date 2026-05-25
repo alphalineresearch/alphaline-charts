@@ -288,9 +288,10 @@ def plot_price_rsi(df: pd.DataFrame, ticker: str, price_color: str, rsi_range=No
     alphaline_layout(fig, f'{ticker} — Weekly RSI(14)', subtitle=subtitle, height=CHART_HEIGHT)
     fig.update_layout(
         showlegend=True,
-        legend=dict(orientation='h', x=0.5, y=1.02, xanchor='center', yanchor='bottom',
+        legend=dict(bgcolor='rgba(10,22,40,0.0)', bordercolor='rgba(0,0,0,0)', borderwidth=0,
                     font=dict(size=9, color=MIST),
-                    bgcolor='rgba(10,22,40,0.85)', bordercolor=STEEL, borderwidth=1)
+                    orientation='h', x=0.5, xanchor='center',
+                    y=-0.07, yanchor='top', tracegroupgap=0),
     )
     fig.update_yaxes(type='log', tickprefix='$', title_text='Price (log)', row=1, col=1)
     fig.update_yaxes(title_text='RSI(14)', range=rsi_range,
@@ -422,9 +423,10 @@ def plot_annual_rsi(df: pd.DataFrame, ticker: str, price_color: str, rsi_range=N
     alphaline_layout(fig, f'{ticker} — Annual RSI(52) Cycle', subtitle=subtitle, height=CHART_HEIGHT)
     fig.update_layout(
         showlegend=True,
-        legend=dict(x=0.01, y=0.99, xanchor='left', yanchor='top',
+        legend=dict(bgcolor='rgba(10,22,40,0.0)', bordercolor='rgba(0,0,0,0)', borderwidth=0,
                     font=dict(size=9, color=MIST),
-                    bgcolor='rgba(10,22,40,0.85)', bordercolor=STEEL, borderwidth=1)
+                    orientation='h', x=0.5, xanchor='center',
+                    y=-0.07, yanchor='top', tracegroupgap=0),
     )
     fig.update_yaxes(type='log', tickprefix='$', title_text='Price (log)', row=1, col=1)
     fig.update_yaxes(title_text='RSI(52)', range=rsi_range,

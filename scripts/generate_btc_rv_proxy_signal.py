@@ -342,17 +342,12 @@ def plot_rv_proxy(df, has_cost):
     fig.update_layout(
         showlegend=True,
         legend=dict(
-            bgcolor='rgba(10,22,40,0.8)', bordercolor=STEEL, borderwidth=1,
+            bgcolor='rgba(10,22,40,0.0)', bordercolor='rgba(0,0,0,0)', borderwidth=0,
             font=dict(size=9, color=MIST),
-            orientation='h', x=0.5, y=1.02, xanchor='center', yanchor='bottom'
+            orientation='h', x=0.5, xanchor='center',
+            y=-0.07, yanchor='top',
+            tracegroupgap=0,
         ),
-        annotations=[
-            dict(text='Source: alphalineresearch.com  |  Yahoo Finance · blockchain.info',
-                 xref='paper', yref='paper', x=1.0, y=-0.09,
-                 xanchor='right', yanchor='top', showarrow=False,
-                 font=dict(family='Courier New, monospace', size=9, color=MIST)),
-
-        ]
     )
     fig.update_yaxes(type='log', tickprefix='$', title_text='BTC Price (log)', row=1, col=1)
     fig.update_yaxes(title_text='RV7/RV30 ratio', row=2, col=1)

@@ -502,11 +502,10 @@ def plot_heatmap_chart(df, cost_series, has_cost, pnav_mu, pnav_std):
     fig.update_layout(
         bargap=0,
         showlegend=True,
-        legend=dict(
-            orientation='h', x=0.5, y=1.02, xanchor='center', yanchor='bottom',
-            font=dict(size=9, color=MIST),
-            bgcolor='rgba(10,22,40,0.85)', bordercolor=STEEL, borderwidth=1
-        )
+        legend=dict(bgcolor='rgba(10,22,40,0.0)', bordercolor='rgba(0,0,0,0)', borderwidth=0,
+                    font=dict(size=9, color=MIST),
+                    orientation='h', x=0.5, xanchor='center',
+                    y=-0.07, yanchor='top', tracegroupgap=0),
     )
     fig.update_yaxes(type='log', tickprefix='$', title_text='BTC Price (log)', row=1, col=1)
     fig.update_yaxes(title_text='P/NAV (x)', ticksuffix='x', row=2, col=1)
