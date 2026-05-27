@@ -81,7 +81,7 @@ def alphaline_layout(fig, title, height=CHART_HEIGHT, subtitle='',
             x=0.02, xanchor='left', y=0.985, yanchor='top'
         ),
         font=dict(family='Courier New, monospace', color=MIST, size=10),
-        margin=dict(l=40, r=20, t=80, b=95),
+        margin=dict(l=40, r=60, t=80, b=130),
         xaxis=dict(gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5, zeroline=False,
                    showspikes=True, spikecolor=MIST, spikethickness=1, spikedash='dot'),
         xaxis2=dict(gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5, zeroline=False),
@@ -91,7 +91,7 @@ def alphaline_layout(fig, title, height=CHART_HEIGHT, subtitle='',
                         font=dict(family='Courier New, monospace', size=11, color=WHITE)),
         annotations=[
             dict(text=f'Source: {source}', xref='paper', yref='paper',
-                 x=0.0, y=-0.04, xanchor='left', yanchor='top',
+                 x=0.99, y=-0.07, xanchor='right', yanchor='top',
                  font=dict(family='Courier New, monospace', size=8, color=STEEL), showarrow=False),
 
         ],
@@ -239,8 +239,9 @@ def plot_tvl_momentum(df, lookback=30):
     d = d.tail(lookback + 1)
 
     d['total_pct_chg'] = d['total_secured_usd'].pct_change() * 100
-    d['tvl_cum_ret']   = ((1 + d['total_pct_chg'] / 100).cumprod() - 1) * 100
     d = d.iloc[1:]
+    base_tvl = d['total_secured_usd'].iloc[0]
+    d['tvl_cum_ret'] = (d['total_secured_usd'] / base_tvl - 1) * 100
 
     fig = make_subplots(
         rows=3, cols=1, shared_xaxes=True,
@@ -297,21 +298,27 @@ def plot_tvl_momentum(df, lookback=30):
     ret_color   = GREEN_LIT if eth_30d_ret >= 0 else RED_LIT
     fig.add_annotation(
         x=d.index[-1], y=latest_eth,
-        xref='x', yref='y',
         text=f'  ${latest_eth:,.0f}  ({eth_30d_ret:+.1f}% 30d)',
         showarrow=False, xanchor='left',
-        font=dict(family='Courier New, monospace', size=10, color=ret_color)
+        font=dict(family='Courier New, monospace', size=10, color=ret_color),
+        row=1, col=1
     )
     fig.add_annotation(
         x=d.index[-1], y=cum_final,
-        xref='x', yref='y3',
         text=f'  TVL  {cum_final:+.1f}% (30d)',
         showarrow=False, xanchor='left',
-        font=dict(family='Courier New, monospace', size=10, color=cum_color)
+        font=dict(family='Courier New, monospace', size=10, color=cum_color),
+        row=3, col=1
     )
 
     fig.update_layout(
         showlegend=True,
+        legend=dict(
+            bgcolor='rgba(10,22,40,0.0)', bordercolor='rgba(0,0,0,0)', borderwidth=0,
+            font=dict(size=9, color=MIST),
+            orientation='h', x=0.5, xanchor='center',
+            y=-0.12, yanchor='top', tracegroupgap=0,
+        ),
     )
     fig.update_yaxes(title_text='ETH Price ($)',
                      title_font=dict(size=9, color=MIST), row=1, col=1)
@@ -320,7 +327,7 @@ def plot_tvl_momentum(df, lookback=30):
     fig.update_yaxes(title_text='Cumul. TVL Return %',
                      title_font=dict(size=9, color=MIST), row=3, col=1)
     # Pad x-axis 3 days right so end-of-data annotations aren't clipped
-    fig.update_xaxes(range=[d.index[0], d.index[-1] + pd.Timedelta(days=3)])
+    fig.update_xaxes(range=[d.index[0], d.index[-1] + pd.Timedelta(days=5)])
     return fig
 
 
