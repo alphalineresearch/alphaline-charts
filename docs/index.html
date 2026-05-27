@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Charts</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0f0f0f;
+    --surface: #181818;
+    --border: rgba(255,255,255,0.08);
+    --text: #e8e8e8;
+    --muted: #666;
+    --accent: #c8f04a;
+    --font: 'Berkeley Mono', 'Fira Code', 'Courier New', monospace;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  .header-left {
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+  }
+
+  .site-title {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  #meta {
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  #search {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 12px;
+    padding: 6px 12px;
+    border-radius: 3px;
+    width: 200px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  #search:focus { border-color: var(--accent); }
+  #search::placeholder { color: var(--muted); }
+
+  main {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 32px 24px 80px;
+    display: flex;
+    flex-direction: column;
+    gap: 40px;
+  }
+
+  .chart-block {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+  .chart-block:hover { border-color: rgba(255,255,255,0.16); }
+
+  .chart-label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    gap: 12px;
+  }
+
+  .chart-title {
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 500;
+  }
+
+  .chart-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+
+  .chart-date {
+    font-size: 11px;
+    color: var(--muted);
+    opacity: 0.6;
+  }
+
+  .open-link {
+    font-size: 11px;
+    color: var(--accent);
+    text-decoration: none;
+    letter-spacing: 0.05em;
+    opacity: 0.7;
+    transition: opacity 0.15s;
+  }
+  .open-link:hover { opacity: 1; }
+
+  .chart-frame {
+    width: 100%;
+    height: 520px;
+    border: none;
+    display: block;
+    background: #fff;
+  }
+
+  #empty {
+    display: none;
+    padding: 60px 0;
+    text-align: center;
+    color: var(--muted);
+    font-size: 12px;
+    letter-spacing: 0.05em;
+  }
+
+  .error-msg {
+    padding: 60px 24px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 2;
+  }
+  .error-msg a { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <span class="site-title">Charts</span>
+    <span id="meta">loading...</span>
+  </div>
+  <input id="search" type="text" placeholder="filter charts..." autocomplete="off" />
+</header>
+
+<main id="feed">
+  <div class="error-msg" id="loading-msg">fetching manifest...</div>
+</main>
+
+<div id="empty">no charts match</div>
+
+<script>
+const feed = document.getElementById('feed');
+const meta = document.getElementById('meta');
+const search = document.getElementById('search');
+const empty = document.getElementById('empty');
+
+let charts = [];
+
+async function loadManifest() {
+  try {
+    const res = await fetch('manifest.json?nocache=' + Date.now());
+    if (!res.ok) throw new Error('manifest.json not found');
+    const data = await res.json();
+    charts = data.charts || [];
+    meta.textContent = `${charts.length} charts — updated ${data.updated || ''}`;
+    render(charts);
+  } catch (e) {
+    feed.innerHTML = `<div class="error-msg">
+      Could not load manifest.json.<br>
+      Run <code>python scripts/generate_manifest.py</code> and commit the result.<br>
+      <a href="https://github.com" target="_blank">→ repo</a>
+    </div>`;
+  }
+}
+
+function makeBlock(chart) {
+  const block = document.createElement('div');
+  block.className = 'chart-block';
+  block.dataset.title = chart.title.toLowerCase();
+
+  block.innerHTML = `
+    <div class="chart-label">
+      <span class="chart-title">${chart.title}</span>
+      <div class="chart-actions">
+        <span class="chart-date">${chart.updated || ''}</span>
+        <a class="open-link" href="${chart.file}" target="_blank">open ↗</a>
+      </div>
+    </div>
+    <iframe class="chart-frame" src="${chart.file}" loading="lazy" title="${chart.title}"></iframe>
+  `;
+  return block;
+}
+
+function render(list) {
+  feed.innerHTML = '';
+  if (!list.length) {
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+  list.forEach(c => feed.appendChild(makeBlock(c)));
+}
+
+search.addEventListener('input', () => {
+  const q = search.value.toLowerCase().trim();
+  if (!q) { render(charts); return; }
+  render(charts.filter(c => c.title.toLowerCase().includes(q) || c.file.toLowerCase().includes(q)));
+});
+
+loadManifest();
+</script>
+</body>
+</html>
