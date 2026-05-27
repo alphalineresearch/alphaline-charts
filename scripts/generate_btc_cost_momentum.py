@@ -249,8 +249,9 @@ def build_dataframe():
     d = d.tail(LOOKBACK + 1)   # keep one extra row for pct_change
 
     d['cost_pct_chg'] = d[cost_col].pct_change() * 100
-    d['cost_cum_ret']  = ((1 + d['cost_pct_chg'] / 100).cumprod() - 1) * 100
     d = d.iloc[1:]             # drop the NaN first row after pct_change
+    base_cost = d[cost_col].iloc[0]
+    d['cost_cum_ret'] = (d[cost_col] / base_cost - 1) * 100
 
     print(f'  Window: {d.index[0].date()} → {d.index[-1].date()} ({len(d)} days)')
     return d

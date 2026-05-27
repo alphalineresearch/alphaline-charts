@@ -52,10 +52,10 @@ jobs:
         run: python scripts/generate_eth_components_combined_tvl.py
 
       - name: Build ETH Z Score
-        run: python scripts/generate_eth_components_combined_tvl.py
+        run: python scripts/generate_eth_model_zscore.py
 
       - name: Build BTC Cost Momentum
-        run: python scripts/generate_eth_model_zscore.py
+        run: python scripts/generate_btc_cost_momentum.py
 
       - name: Build ETH Stacked TVL Mcap
         run: python scripts/generate_eth_stacked_tvl_mcap.py
