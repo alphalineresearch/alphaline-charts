@@ -86,7 +86,7 @@ def alphaline_layout(fig, title, height=CHART_HEIGHT, subtitle='',
         ),
         annotations=[
             dict(text=f'Source: {source}', xref='paper', yref='paper',
-                 x=0.04, y=-0.05, xanchor='left', yanchor='top',
+                 x=0.99, y=-0.035, xanchor='right', yanchor='top',
                  font=dict(family='Courier New, monospace', size=8, color=STEEL), showarrow=False),
 
         ],
@@ -408,7 +408,7 @@ def plot_eth_proxy_signal(df, sig_all):
         legend=dict(bgcolor='rgba(10,22,40,0.0)', bordercolor='rgba(0,0,0,0)', borderwidth=0,
                     font=dict(size=9, color=MIST),
                     orientation='h', x=0.5, xanchor='center',
-                    y=-0.08, yanchor='top', tracegroupgap=0),
+                    y=-0.09, yanchor='top', tracegroupgap=0),
     )
     fig.update_yaxes(
         type='log',
