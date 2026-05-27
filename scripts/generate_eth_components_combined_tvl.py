@@ -77,7 +77,7 @@ def alphaline_layout(fig, title, height=CHART_HEIGHT, subtitle='',
             x=0.02, xanchor='left', y=0.985, yanchor='top'
         ),
         font=dict(family='Courier New, monospace', color=MIST, size=10),
-        margin=dict(l=40, r=20, t=80, b=130),
+        margin=dict(l=40, r=20, t=80, b=160),
         xaxis=dict(gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5, zeroline=False,
                    showspikes=True, spikecolor=MIST, spikethickness=1, spikedash='dot'),
         xaxis2=dict(gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5, zeroline=False),
@@ -361,7 +361,7 @@ def plot_tvl_daily_flows(df, lookback=30):
             bgcolor='rgba(10,22,40,0.0)', bordercolor='rgba(0,0,0,0)', borderwidth=0,
             font=dict(size=9, color=MIST),
             orientation='h', x=0.5, xanchor='center',
-            y=-0.12, yanchor='top',
+            y=-0.14, yanchor='top',
             tracegroupgap=0,
         ),
     )
