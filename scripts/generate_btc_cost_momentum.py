@@ -302,7 +302,7 @@ def plot_cost_momentum(d):
     fig.add_hline(y=0, line_color=WHITE, line_width=0.6,
                   opacity=0.25, row=3, col=1)
 
-    latest_cost = d['cost_30d'].iloc[-1]
+    latest_cost = d['cost_30d'].ffill().iloc[-1]
     alphaline_layout(
         fig,
         'BTC Price + Production Cost Momentum',
