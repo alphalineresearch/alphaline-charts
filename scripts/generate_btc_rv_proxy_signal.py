@@ -89,7 +89,7 @@ def alphaline_layout(fig, title, height=CHART_HEIGHT, subtitle='',
                         font=dict(family='Courier New, monospace', size=11, color=WHITE)),
         annotations=[
             dict(text=f'Source: {source}', xref='paper', yref='paper',
-                 x=0.0, y=-0.04, xanchor='left', yanchor='top',
+                 x=0.99, y=-0.035, xanchor='right', yanchor='top',
                  font=dict(family='Courier New, monospace', size=8, color=STEEL), showarrow=False),
 
         ],
@@ -351,7 +351,7 @@ def plot_rv_proxy(df, has_cost):
     )
     fig.update_yaxes(type='log', tickprefix='$', title_text='BTC Price (log)', row=1, col=1)
     fig.update_yaxes(title_text='RV7/RV30 ratio', row=2, col=1)
-    fig.update_xaxes(title_text='Date', row=2, col=1)
+    fig.update_xaxes(title_text='', row=2, col=1)
     return fig
 
 

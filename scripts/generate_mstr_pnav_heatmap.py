@@ -93,7 +93,7 @@ def alphaline_layout(fig, title, height=CHART_HEIGHT, subtitle='',
             x=0.02, xanchor='left', y=0.985, yanchor='top'
         ),
         font=dict(family='Courier New, monospace', color=MIST, size=10),
-        margin=dict(l=40, r=20, t=80, b=95),
+        margin=dict(l=40, r=20, t=80, b=115),
         xaxis=dict(gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5, zeroline=False,
                    showspikes=True, spikecolor=MIST, spikethickness=1, spikedash='dot'),
         yaxis=dict(gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5, zeroline=False),
@@ -103,13 +103,13 @@ def alphaline_layout(fig, title, height=CHART_HEIGHT, subtitle='',
             bgcolor='rgba(10,22,40,0.0)', bordercolor='rgba(0,0,0,0)', borderwidth=0,
             font=dict(size=9, color=MIST),
             orientation='h', x=0.5, xanchor='center',
-            y=-0.11, yanchor='top',
+            y=-0.09, yanchor='top',
             tracegroupgap=0,
         ),
         annotations=[
             dict(text=f'Source: {source}',
-                 xref='paper', yref='paper', x=0.0, y=-0.04,
-                 xanchor='left', yanchor='top',
+                 xref='paper', yref='paper', x=0.99, y=-0.04,
+                 xanchor='right', yanchor='top',
                  font=dict(family='Courier New, monospace', size=8, color=STEEL),
                  showarrow=False),
         ],
@@ -509,7 +509,7 @@ def plot_heatmap_chart(df, cost_series, has_cost, pnav_mu, pnav_std):
     )
     fig.update_yaxes(type='log', tickprefix='$', title_text='BTC Price (log)', row=1, col=1)
     fig.update_yaxes(title_text='P/NAV (x)', ticksuffix='x', row=2, col=1)
-    fig.update_xaxes(title_text='Date', row=2, col=1)
+    fig.update_xaxes(title_text='', row=2, col=1)
 
     return fig
 

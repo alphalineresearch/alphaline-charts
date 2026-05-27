@@ -77,7 +77,7 @@ def alphaline_layout(fig, title, height=CHART_HEIGHT, subtitle='',
             x=0.02, xanchor='left', y=0.985, yanchor='top'
         ),
         font=dict(family='Courier New, monospace', color=MIST, size=10),
-        margin=dict(l=40, r=20, t=80, b=95),
+        margin=dict(l=40, r=20, t=80, b=130),
         xaxis=dict(gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5, zeroline=False,
                    showspikes=True, spikecolor=MIST, spikethickness=1, spikedash='dot'),
         xaxis2=dict(gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5, zeroline=False),
@@ -87,8 +87,8 @@ def alphaline_layout(fig, title, height=CHART_HEIGHT, subtitle='',
                         font=dict(family='Courier New, monospace', size=11, color=WHITE)),
         annotations=[
             dict(text=f'Source: {source}',
-                 xref='paper', yref='paper', x=0.0, y=-0.04,
-                 xanchor='left', yanchor='top',
+                 xref='paper', yref='paper', x=0.99, y=-0.07,
+                 xanchor='right', yanchor='top',
                  font=dict(family='Courier New, monospace', size=8, color=STEEL),
                  showarrow=False),
         ],
@@ -357,6 +357,13 @@ def plot_tvl_daily_flows(df, lookback=30):
     fig.update_layout(
         barmode='relative',
         showlegend=True,
+        legend=dict(
+            bgcolor='rgba(10,22,40,0.0)', bordercolor='rgba(0,0,0,0)', borderwidth=0,
+            font=dict(size=9, color=MIST),
+            orientation='h', x=0.5, xanchor='center',
+            y=-0.12, yanchor='top',
+            tracegroupgap=0,
+        ),
     )
     fig.update_yaxes(title_text='ETH Price ($)',
                      title_font=dict(size=9, color=MIST), row=1, col=1)
