@@ -60,11 +60,11 @@ jobs:
       - name: Build ETH Stacked TVL Mcap
         run: python scripts/generate_eth_stacked_tvl_mcap.py
 
-      - name: Generate manifest
-        run: python scripts/generate_manifest.py
-
       - name: BTC BB Squeeze Copper/Gold Chart
         run: python scripts/generate_btc_copper_gold_bb_squeeze.py
+
+      - name: Generate manifest
+        run: python scripts/generate_manifest.py
 
       - name: Commit and push updated charts
         env:
