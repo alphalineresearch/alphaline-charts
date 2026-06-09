@@ -1,6 +1,6 @@
 {
   "updated": "2026-06-09",
-  "count": 20,
+  "count": 21,
   "charts": [
     {
       "file": "btc_copper_gold_bb_squeeze.html",
@@ -10,6 +10,11 @@
     {
       "file": "btc_cost_momentum.html",
       "title": "Btc Cost Momentum",
+      "updated": "2026-06-09"
+    },
+    {
+      "file": "btc_price_hashrate.html",
+      "title": "Btc Price Hashrate",
       "updated": "2026-06-09"
     },
     {
