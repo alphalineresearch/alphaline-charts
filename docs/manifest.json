@@ -1,6 +1,6 @@
 {
   "updated": "2026-06-09",
-  "count": 16,
+  "count": 20,
   "charts": [
     {
       "file": "btc_copper_gold_bb_squeeze.html",
@@ -10,6 +10,21 @@
     {
       "file": "btc_cost_momentum.html",
       "title": "Btc Cost Momentum",
+      "updated": "2026-06-09"
+    },
+    {
+      "file": "btc_price_vs_production_cost.html",
+      "title": "Btc Price Vs Production Cost",
+      "updated": "2026-06-09"
+    },
+    {
+      "file": "btc_risk_score_history.html",
+      "title": "Btc Risk Score History",
+      "updated": "2026-06-09"
+    },
+    {
+      "file": "btc_risk_score_recency.html",
+      "title": "Btc Risk Score Recency",
       "updated": "2026-06-09"
     },
     {
@@ -25,6 +40,11 @@
     {
       "file": "btc_rv7_rv30_proxy_signal.html",
       "title": "Btc Rv7 Rv30 Proxy Signal",
+      "updated": "2026-06-09"
+    },
+    {
+      "file": "btc_signal_mstr.html",
+      "title": "Btc Signal Mstr",
       "updated": "2026-06-09"
     },
     {
