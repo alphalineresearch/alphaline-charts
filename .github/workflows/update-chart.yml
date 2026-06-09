@@ -63,6 +63,9 @@ jobs:
       - name: BTC BB Squeeze Copper/Gold Chart
         run: python scripts/generate_btc_copper_gold_bb_squeeze.py
 
+      - name: Run BTC Production Cost + Risk Score Charts
+        run: python scripts/generate_btc_production_cost_charts.py
+
       - name: Generate manifest
         run: python scripts/generate_manifest.py
 
@@ -72,7 +75,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add docs/eth_stacked_tvl.html docs/btc_rv7_rv30_proxy_signal.html docs/eth_stable_model_compact.html docs/eth_combined_tvl.html docs/eth_proxy_signal.html docs/mstr_pnav_heatmap.html docs/btc_rsi_weekly.html docs/eth_rsi_weekly.html docs/btc_rsi_annual.html docs/eth_rsi_annual.html docs/eth_tvl_momentum.html docs/eth_stacked_tvl_mcap.html docs/eth_model_zscore.html docs/btc_cost_momentum.html docs/manifest.json docs/index.html docs/eth_combined_components_tvl.html docs/btc_copper_gold_bb_squeeze.html
+          git add docs/eth_stacked_tvl.html docs/btc_rv7_rv30_proxy_signal.html docs/eth_stable_model_compact.html docs/eth_combined_tvl.html docs/btc_price_vs_production_cost.html docs/btc_risk_score_history.html docs/btc_risk_score_recency.html docs/btc_signal_mstr.html docs/eth_proxy_signal.html docs/mstr_pnav_heatmap.html docs/btc_rsi_weekly.html docs/eth_rsi_weekly.html docs/btc_rsi_annual.html docs/eth_rsi_annual.html docs/eth_tvl_momentum.html docs/eth_stacked_tvl_mcap.html docs/eth_model_zscore.html docs/btc_cost_momentum.html docs/manifest.json docs/index.html docs/eth_combined_components_tvl.html docs/btc_copper_gold_bb_squeeze.html
           git diff --staged --quiet || git commit -m "chore: update charts $(date -u '+%Y-%m-%d')"
           git pull --rebase
           git push
