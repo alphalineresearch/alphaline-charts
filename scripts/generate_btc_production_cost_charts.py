@@ -349,7 +349,7 @@ def build_historical_cost(historical_hr):
     return hist_cost_30d
 
 
-def build_signal_df(btc_px, historical_hr, hist_cost_30d):
+def build_signal_df(btc_px, historical_hr, hist_cost_30d, halving_records):
     hr_series  = historical_hr['hashrate_eh']
     hr_90d_chg = hr_series.pct_change(90) * 100
     hr_daily   = hr_90d_chg.reindex(btc_px.index, method='ffill')
@@ -364,11 +364,14 @@ def build_signal_df(btc_px, historical_hr, hist_cost_30d):
     }).dropna()
     sig = sig[sig.index >= pd.Timestamp('2016-01-01')]
 
+    # Next halving estimated from live block height (same source as compute_current_score).
+    # If a halving has happened that isn't in _HIST_HALVINGS, the ramp before it is lost.
+    if halving_records[0]['era'] - 1 > len(_HIST_HALVINGS):
+        print(f"  WARNING: _HIST_HALVINGS is missing halving era {halving_records[0]['era'] - 1}; "
+              f"add its date or the halving-urgency history will be wrong")
     _ALL_HALVINGS_DT = sorted(
         [pd.Timestamp(d) for d, _ in _HIST_HALVINGS] +
-        [pd.Timestamp(datetime.utcnow() + timedelta(seconds=(
-            ((sig.index[-1].year - 2024) // 4 + 5) * BLOCKS_PER_HALVING * 600
-        )))]
+        [pd.Timestamp(halving_records[0]['est_date'].strftime('%Y-%m-%d'))]
     )
 
     def days_to_next_halving_at(date):
@@ -919,7 +922,7 @@ if __name__ == '__main__':
     current_cost  = production_cost_per_btc(live_hr_eh, fleet_efficiency_jth,
                                              electricity_cost_kwh, current_subsidy)
     hist_cost_30d = build_historical_cost(historical_hr)
-    sig           = build_signal_df(btc_px, historical_hr, hist_cost_30d)
+    sig           = build_signal_df(btc_px, historical_hr, hist_cost_30d, halving_records)
     score_now     = compute_current_score(btc_spot, current_cost, historical_hr, halving_records)
 
     # Chart 5
