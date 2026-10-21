@@ -1,111 +1,258 @@
 {
-  "updated": "2026-10-20",
+  "updated": "2026-10-21",
   "count": 21,
   "charts": [
     {
       "file": "btc_copper_gold_bb_squeeze.html",
       "title": "Btc Copper Gold Bb Squeeze",
-      "updated": "2026-10-20"
+      "updated": "2026-10-21"
     },
     {
       "file": "btc_cost_momentum.html",
       "title": "Btc Cost Momentum",
-      "updated": "2026-10-20"
+      "updated": "2026-10-21"
     },
     {
       "file": "btc_price_hashrate.html",
       "title": "Btc Price Hashrate",
-      "updated": "2026-10-20"
+      "updated": "2026-10-21"
     },
     {
       "file": "btc_price_vs_production_cost.html",
       "title": "Btc Price Vs Production Cost",
-      "updated": "2026-10-20"
+      "updated": "2026-10-21"
     },
     {
       "file": "btc_risk_score_history.html",
       "title": "Btc Risk Score History",
-      "updated": "2026-10-20"
+      "updated": "2026-10-21"
     },
     {
       "file": "btc_risk_score_recency.html",
       "title": "Btc Risk Score Recency",
-      "updated": "2026-10-20"
+      "updated": "2026-10-21"
     },
     {
       "file": "btc_rsi_annual.html",
       "title": "Btc Rsi Annual",
-      "updated": "2026-10-20"
+      "updated": "2026-10-21"
     },
     {
       "file": "btc_rsi_weekly.html",
       "title": "Btc Rsi Weekly",
-      "updated": "2026-10-20"
+      "updated": "2026-10-21"
     },
     {
       "file": "btc_rv7_rv30_proxy_signal.html",
       "title": "Btc Rv7 Rv30 Proxy Signal",
-      "updated": "2026-10-20"
+      "updated": "2026-10-21"
     },
     {
       "file": "btc_signal_mstr.html",
       "title": "Btc Signal Mstr",
-      "updated": "2026-10-20"
+      "updated": "2026-10-21"
     },
     {
       "file": "eth_combined_components_tvl.html",
       "title": "Eth Combined Components Tvl",
-      "updated": "2026-10-20"
+      "updated": "2026-10-21"
     },
     {
       "file": "eth_combined_tvl.html",
       "title": "Eth Combined Tvl",
-      "updated": "2026-10-20"
+      "updated": "2026-10-21"
     },
     {
       "file": "eth_model_zscore.html",
       "title": "Eth Model Zscore",
-      "updated": "2026-10-20"
+      "updated": "2026-10-21"
     },
     {
       "file": "eth_proxy_signal.html",
       "title": "Eth Proxy Signal",
-      "updated": "2026-10-20"
+      "updated": "2026-10-21"
     },
     {
       "file": "eth_rsi_annual.html",
       "title": "Eth Rsi Annual",
-      "updated": "2026-10-20"
+      "updated": "2026-10-21"
     },
     {
       "file": "eth_rsi_weekly.html",
       "title": "Eth Rsi Weekly",
-      "updated": "2026-10-20"
+      "updated": "2026-10-21"
     },
     {
       "file": "eth_stable_model_compact.html",
       "title": "Eth Stable Model Compact",
-      "updated": "2026-10-20"
+      "updated": "2026-10-21"
     },
     {
       "file": "eth_stacked_tvl.html",
       "title": "Eth Stacked Tvl",
-      "updated": "2026-10-20"
+      "updated": "2026-10-21"
     },
     {
       "file": "eth_stacked_tvl_mcap.html",
       "title": "Eth Stacked Tvl Mcap",
-      "updated": "2026-10-20"
+      "updated": "2026-10-21"
     },
     {
       "file": "eth_tvl_momentum.html",
       "title": "Eth Tvl Momentum",
-      "updated": "2026-10-20"
+      "updated": "2026-10-21"
     },
     {
       "file": "mstr_pnav_heatmap.html",
       "title": "Mstr Pnav Heatmap",
-      "updated": "2026-10-20"
+      "updated": "2026-10-21"
     }
-  ]
+  ],
+  "signals": {
+    "asOf": "2026-10-19",
+    "generated": "2026-10-21T01:25Z",
+    "items": [
+      {
+        "id": "btc-risk",
+        "name": "BTC Opportunity Signal",
+        "val": "On",
+        "unit": "",
+        "state": "",
+        "color": "#2ABF7A",
+        "sub": "Score 47 · fires at 40+ · on since Oct 10, 2026",
+        "viz": {
+          "type": "recency",
+          "bucket": 0
+        }
+      },
+      {
+        "id": "btc-hash",
+        "name": "BTC Hashrate",
+        "val": "+4.5%",
+        "unit": "7d",
+        "state": "Expanding",
+        "color": "#2ABF7A",
+        "sub": "1,062 EH/s · 19% below its high"
+      },
+      {
+        "id": "btc-cost",
+        "name": "BTC vs. Production Cost",
+        "val": "+30%",
+        "unit": "",
+        "state": "Above cost",
+        "color": "#8FA2B2",
+        "sub": "$81,562 price vs. $62,701 cost to mine",
+        "viz": {
+          "type": "scale",
+          "min": -50,
+          "max": 150,
+          "v": 30.1,
+          "zones": [
+            [
+              -50,
+              0,
+              "opp"
+            ]
+          ],
+          "ticks": [
+            0
+          ]
+        }
+      },
+      {
+        "id": "eth-model",
+        "name": "ETH Model Price",
+        "val": "$2,826",
+        "unit": "",
+        "state": "ETH 15% below",
+        "color": "#2ABF7A",
+        "sub": "ETH trades at $2,405",
+        "viz": {
+          "type": "scale",
+          "min": -50,
+          "max": 50,
+          "v": -14.9,
+          "zones": [
+            [
+              -50,
+              -20,
+              "opp"
+            ],
+            [
+              20,
+              50,
+              "str"
+            ]
+          ],
+          "ticks": [
+            0
+          ]
+        }
+      },
+      {
+        "id": "eth-secured",
+        "name": "Secured on Ethereum",
+        "val": "$196.5B",
+        "unit": "",
+        "chg": -1.0,
+        "state": "Down this week",
+        "color": "#E86A6A",
+        "sub": "",
+        "viz": {
+          "type": "rows",
+          "rows": [
+            [
+              "Stablecoins",
+              "$145.0B",
+              0.0
+            ],
+            [
+              "DeFi",
+              "$49.6B",
+              -3.9
+            ],
+            [
+              "Tokenized assets",
+              "$1.9B",
+              0.7
+            ]
+          ]
+        }
+      },
+      {
+        "id": "dat",
+        "name": "Treasury Companies · mNAV",
+        "val": "",
+        "unit": "",
+        "state": "",
+        "color": "#8FA2B2",
+        "sub": "Market cap ÷ net assets (crypto + cash − debt − preferred)",
+        "viz": {
+          "type": "rows",
+          "rows": [
+            [
+              "MSTR · BTC",
+              "1.09×",
+              null
+            ],
+            [
+              "ASST · BTC",
+              "1.67×",
+              null
+            ],
+            [
+              "BMNR · ETH",
+              "0.88×",
+              null
+            ],
+            [
+              "SBET · ETH",
+              "0.77×",
+              null
+            ]
+          ]
+        }
+      }
+    ]
+  }
 }
