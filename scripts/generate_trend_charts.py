@@ -40,7 +40,7 @@ import requests
 import yfinance as yf
 from plotly.subplots import make_subplots
 
-from alphaline_theme import (apply_theme, write_chart, hover, date_long, pct, sigma, NAVY_MID, STEEL,
+from alphaline_theme import (apply_theme, write_chart, hover, date_long, pct, sigma, NAVY_MID, STEEL, GOLD_LIT,
                              GOLD, WHITE, TEXT_2, TEXT_3, GREEN, RED, ETH_BLUE)
 
 warnings.filterwarnings('ignore')
@@ -54,6 +54,7 @@ except AttributeError:
 # ════════════════════════════════════════════
 OUTPUT_BTC = os.path.join('docs', 'btc_trend.html')
 OUTPUT_ETH = os.path.join('docs', 'eth_trend.html')
+OUTPUT_ZONES = os.path.join('docs', 'trend_risk_reward.html')
 ETH_EARLY  = os.path.join('data', 'eth_early_daily.csv')      # Kraken, Aug 2015 – May 2016
 
 MA_DAYS      = 200
@@ -63,6 +64,9 @@ Z_WINDOW     = 4 * 365       # days of history the Mayer z is scaled against
 Z_MIN_DAYS   = 2 * 365       # history needed before it is drawn
 Z_HOT        = 1.5           # ≥ +1.5σ: stretched
 Z_COLD       = -1.5          # ≤ −1.5σ: washed out
+Z_EDGES      = [-np.inf, Z_COLD, -0.5, 0.5, Z_HOT, np.inf]
+Z_LABELS     = ['≤ −1.5σ<br>washed out', '−1.5 to −0.5σ', '−0.5 to +0.5σ', '+0.5 to +1.5σ', '≥ +1.5σ<br>stretched']
+FWD_DAYS     = 365
 
 MA200_COLOR  = WHITE
 MA200W_COLOR = GOLD          # green is the uptrend colour of the price line
@@ -254,21 +258,97 @@ NOTE = ('Line colour = trend: how many of the 1, 3, 6 and 12-month returns are p
         f'range over the past 4 years; shading red ≥ +{Z_HOT}σ (stretched), green ≤ −{-Z_COLD}σ (washed out)')
 
 # ════════════════════════════════════════════
+# RISK / REWARD BY ZONE
+# ════════════════════════════════════════════
+def zone_stats(d):
+    """What followed each Mayer z zone: the 12-month return, and the worst fall along the way."""
+    px = d['close']
+    fwd = px.shift(-FWD_DAYS) / px - 1
+    low = px[::-1].rolling(FWD_DAYS, min_periods=FWD_DAYS).min()[::-1].shift(-1)
+    df = pd.DataFrame({'zone': pd.cut(d['mayer_z'], Z_EDGES, labels=False),
+                       'fwd': fwd, 'dd': (low / px - 1).clip(upper=0)}).dropna()
+    rows = []
+    for k in range(len(Z_LABELS)):
+        g = df[df['zone'] == k]
+        rows.append(dict(median=g['fwd'].median(), up=(g['fwd'] > 0).mean(), dd=g['dd'].median(),
+                         days=len(g), share=len(g) / len(df)))
+    base = dict(median=df['fwd'].median(), up=(df['fwd'] > 0).mean())
+    return pd.DataFrame(rows), base, df.index[0]
+
+
+def plot_zones(zones):
+    fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.6, 0.4],
+                        vertical_spacing=0.06)
+    x = list(range(len(Z_LABELS)))
+    for z in zones:
+        st, color, t = z['stats'], z['color'], z['ticker']
+        hov = [f'{t} · {lab.replace("<br>", " ")}<br>median {pct(m * 100, 0)} · higher {u:.0%} of the time'
+               f'<br>median worst fall along the way {pct(dd * 100, 0)}<br>{n:,} days ({sh:.0%} of history)'
+               for lab, m, u, dd, n, sh in zip(Z_LABELS, st['median'], st['up'], st['dd'], st['days'], st['share'])]
+        fig.add_trace(go.Bar(
+            x=x, y=st['median'] * 100, name=t, marker=dict(color=color), offsetgroup=t, legendgroup=t,
+            text=[pct(v * 100, 0) for v in st['median']], textposition='outside', cliponaxis=False,
+            hovertext=hov, hovertemplate='%{hovertext}<extra></extra>'), row=1, col=1)
+        fig.add_trace(go.Bar(
+            x=x, y=st['up'] * 100, name=t, marker=dict(color=hex_to_rgba(color, 0.65)), offsetgroup=t,
+            legendgroup=t, showlegend=False, text=[f'{v:.0%}' for v in st['up']], textposition='outside',
+            cliponaxis=False, hovertext=hov, hovertemplate='%{hovertext}<extra></extra>'), row=2, col=1)
+        for row, val in ((1, z['base']['median'] * 100), (2, z['base']['up'] * 100)):
+            fig.add_hline(y=val, line_dash='dot', line_width=1, line_color=hex_to_rgba(color, 0.7),
+                          row=row, col=1)
+
+    # today's zone
+    marks = {}
+    for z in zones:
+        marks.setdefault(z['today'], []).append(z['ticker'])
+    for k, who in marks.items():
+        for row in (1, 2):
+            fig.add_vrect(x0=k - 0.5, x1=k + 0.5, fillcolor=hex_to_rgba(GOLD, 0.07),
+                          line=dict(color=hex_to_rgba(GOLD, 0.5), width=1), layer='below', row=row, col=1)
+        fig.add_annotation(x=k, y=1.0, xref='x', yref='y domain', yanchor='bottom', showarrow=False,
+                           text=f'<b>{" & ".join(who)} today</b>', font=dict(color=GOLD_LIT, size=12))
+
+    apply_theme(fig)
+    fig.update_layout(barmode='group', bargap=0.3, margin=dict(t=40))
+    fig.update_xaxes(tickmode='array', tickvals=x, ticktext=Z_LABELS, showspikes=False)
+    fig.update_yaxes(title_text='Median 12-mo return', ticksuffix='%', row=1, col=1)
+    fig.update_yaxes(title_text='% higher after 12 mo', ticksuffix='%', range=[0, 118], row=2, col=1)
+    return fig
+
+
+ZONES_NOTE = ('What followed each Mayer z reading over the next 12 months, every day since each coin had '
+              '2 years of data. Dotted lines = all days. The rare zones rest on few separate episodes '
+              '(≤ −1.5σ is about 2–3 bear-market lows per coin). History, not a forecast')
+
+
+# ════════════════════════════════════════════
 # MAIN
 # ════════════════════════════════════════════
 if __name__ == '__main__':
     os.makedirs('docs', exist_ok=True)
     print('=== Building BTC & ETH Trend Charts ===')
 
+    zones = []
     for ticker, fetch, color, out, src in (
             ('BTC', fetch_btc, GOLD, OUTPUT_BTC, 'blockchain.info · Yahoo Finance'),
             ('ETH', fetch_eth, ETH_BLUE, OUTPUT_ETH, 'Kraken · Coinbase · Yahoo Finance')):
         d = build(fetch())
+        st, base, z0 = zone_stats(d)
+        zones.append(dict(ticker=ticker, color=color, stats=st, base=base, since=z0,
+                          z=d['mayer_z'].iloc[-1],
+                          today=int(pd.cut([d['mayer_z'].iloc[-1]], Z_EDGES, labels=False)[0])))
         print(f'  {ticker}: {d.index[0].date()} → {d.index[-1].date()} | ${d["close"].iloc[-1]:,.0f} '
               f'| Mayer {d["mayer"].iloc[-1]:.2f} ({d["mayer_z"].iloc[-1]:+.2f}σ) | trend {d["score"].iloc[-1]:.0f}/4')
         fig = plot_trend(d, ticker, color)
         write_chart(fig, out, title=f'{ticker} Trend', subtitle=subtitle(d, ticker), note=NOTE,
                     source=src, default='5Y', min_plot_height=480)
         print(f'  Saved: {out}')
+
+    fig = plot_zones(zones)
+    sub = '  ·  '.join(f"<b>{z['ticker']}</b> Mayer z {sigma(z['z'], 1)} today" for z in zones)
+    sub += '  ·  history from ' + ', '.join(f"{z['ticker']} {z['since']:%Y}" for z in zones)
+    write_chart(fig, OUTPUT_ZONES, title='Risk/Reward by Mayer Zone', subtitle=sub, note=ZONES_NOTE,
+                source='blockchain.info · Kraken · Coinbase · Yahoo Finance', ranges=False, min_plot_height=480)
+    print(f'  Saved: {OUTPUT_ZONES}')
 
     print('\nDone.')

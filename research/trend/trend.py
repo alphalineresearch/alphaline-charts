@@ -65,13 +65,17 @@ def btc_daily():
 
 
 def eth_daily():
+    """Same history as the ETH Trend chart: Kraken (Aug 2015) → Coinbase → Yahoo."""
     def get():
-        import yfinance as yf
-        df = yf.download('ETH-USD', period='max', interval='1d', progress=False, auto_adjust=True)
-        s = df['Close'].squeeze()
-        s.index = pd.to_datetime(s.index).tz_localize(None).normalize()
-        return s.rename('eth').dropna()
-    return _cached('eth', get)
+        import generate_trend_charts as G
+        cwd = os.getcwd()
+        os.chdir(ROOT)                     # data/eth_early_daily.csv is repo-relative
+        try:
+            s = G.fetch_eth()
+        finally:
+            os.chdir(cwd)
+        return s[~s.index.duplicated(keep='last')].rename('eth')
+    return _cached('eth_full', get)
 
 
 def market_weekly():
@@ -245,6 +249,12 @@ def part_b(btc, eth, mkt):
         zone_table(f'{name} — Mayer Multiple (price / 200-day MA)', px, mayer,
                    [0, 0.8, 1.0, 1.5, 2.4, np.inf], ['<0.8', '0.8–1.0', '1.0–1.5', '1.5–2.4', '≥2.4'],
                    (3, 6, 12), 365)
+    for name, px in (('BTC', btc), ('ETH', eth)):
+        dist = np.log(px / px.rolling(200, min_periods=200).mean())
+        z = dist / dist.rolling(4 * 365, min_periods=2 * 365).std()
+        zone_table(f'{name} — Mayer z (log distance from 200-day MA ÷ its 4-year std)', px, z,
+                   [-np.inf, -1.5, -0.5, 0.5, 1.5, np.inf], ['≤−1.5', '−1.5…−0.5', '±0.5', '0.5…1.5', '≥1.5'],
+                   (3, 6, 12), 365)
     w200 = btc / btc.rolling(1400, min_periods=1400).mean()
     zone_table('BTC — price / 200-week MA', btc, w200,
                [0, 1.0, 1.5, 2.5, 4.0, np.inf], ['<1.0', '1.0–1.5', '1.5–2.5', '2.5–4.0', '≥4.0'],
@@ -267,7 +277,7 @@ if __name__ == '__main__':
     print('\n═════ PART A — trend rules vs buy-and-hold (10 bp per trade, next-bar execution) ═════')
     part_a('BTC daily', btc, 365, [('2011', '2014'), ('2015', '2018'), ('2019', '2022'), ('2023', '2026')], 60)
     ma_sweep('BTC', btc, 365)
-    part_a('ETH daily', eth, 365, [('2018', '2021'), ('2022', '2026')], 60)
+    part_a('ETH daily', eth, 365, [('2016', '2018'), ('2019', '2022'), ('2023', '2026')], 60)
     part_a('TOTAL weekly', mkt['total'], 52, [('2014', '2018'), ('2019', '2022'), ('2023', '2026')], 9)
     part_a('TOTAL3 weekly', mkt['total3'], 52, [('2014', '2018'), ('2019', '2022'), ('2023', '2026')], 9)
 

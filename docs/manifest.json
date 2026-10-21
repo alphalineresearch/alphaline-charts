@@ -1,6 +1,6 @@
 {
   "updated": "2026-10-21",
-  "count": 25,
+  "count": 26,
   "charts": [
     {
       "file": "btc_copper_gold_bb_squeeze.html",
@@ -126,11 +126,16 @@
       "file": "treasury_preferreds.html",
       "title": "Treasury Preferreds",
       "updated": "2026-10-21"
+    },
+    {
+      "file": "trend_risk_reward.html",
+      "title": "Trend Risk Reward",
+      "updated": "2026-10-21"
     }
   ],
   "signals": {
     "asOf": "2026-10-20",
-    "generated": "2026-10-21T19:12Z",
+    "generated": "2026-10-21T20:32Z",
     "items": [
       {
         "id": "btc-risk",
@@ -252,12 +257,12 @@
           "rows": [
             [
               "MSTR · BTC",
-              "1.15×",
+              "1.14×",
               null
             ],
             [
               "ASST · BTC",
-              "1.85×",
+              "1.84×",
               null
             ],
             [
