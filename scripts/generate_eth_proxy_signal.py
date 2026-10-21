@@ -21,6 +21,7 @@ from sklearn.linear_model import LinearRegression
 import yfinance as yf
 
 from alphaline_theme import apply_theme, write_chart, pct, sigma, date_long
+import eth_rwa
 
 # ════════════════════════════════════════════
 # SIGNAL THRESHOLDS
@@ -33,7 +34,7 @@ ZSCORE_THRESH     = -1.0   # z-score <= this = below -1σ model
 ETH_TVL_THRESHOLD = 1_000_000   # min $1M on Ethereum for RWA protocols
 
 OUTPUT_PATH = os.path.join('docs', 'eth_proxy_signal.html')
-RWA_NOTE = ' · RWA = on-chain RWA protocols only; DefiLlama stopped counting tokenized funds (BUIDL, gold tokens) on Sep 16, 2026'
+RWA_NOTE = ' · RWA = DefiLlama RWA protocols plus tokenized funds and gold on Ethereum (BUIDL, USDY, USYC, PAXG, XAUt…), read on-chain'
 
 # ════════════════════════════════════════════
 # ALPHALINE BRAND COLORS
@@ -115,44 +116,12 @@ def fetch_defi_tvl():
 
 
 def fetch_rwa_tvl():
-    print('Fetching RWA TVL...')
-    r = _get('https://api.llama.fi/protocols')
-    protocols = r.json()
-    rwa_protocols = [
-        (p['name'], p['slug'])
-        for p in protocols
-        if ('rwa' in p.get('category', '').lower() or
-            'real world' in p.get('category', '').lower())
-        and p.get('chainTvls', {}).get('Ethereum', 0) > ETH_TVL_THRESHOLD
-    ]
-    print(f'  Found {len(rwa_protocols)} RWA protocols')
-    all_series = {}
-    for name, slug in rwa_protocols:
-        try:
-            r2   = _get(f'https://api.llama.fi/protocol/{slug}')
-            data = r2.json()
-            if 'chainTvls' in data and 'Ethereum' in data['chainTvls']:
-                hist = data['chainTvls']['Ethereum']['tvl']
-                all_series[name] = pd.Series(
-                    {pd.Timestamp(p['date'], unit='s'): p['totalLiquidityUSD'] for p in hist}
-                )
-            time.sleep(0.25)
-        except Exception as e:
-            print(f'  ! {name}: {e}')
-    if not all_series:
-        print('  No RWA data — using zeros.')
-        return pd.DataFrame(columns=['rwa_tvl_usd'])
-    rwa_df = pd.DataFrame(all_series)
-    rwa_df.index = pd.to_datetime(rwa_df.index).normalize()
-    rwa_daily = rwa_df.resample('D').last().ffill()
-    rwa_total = rwa_daily.sum(axis=1).to_frame(name='rwa_tvl_usd').iloc[:-1]
-    print(f'  latest: ${rwa_total["rwa_tvl_usd"].iloc[-1]/1e9:.3f}B')
-    return rwa_total
+    """RWA on Ethereum: DefiLlama RWA protocols plus tokenized funds and gold read from
+    their Ethereum contracts (DefiLlama stopped counting those on Sep 16, 2026).
+    Shared with the other ETH charts — see scripts/eth_rwa.py."""
+    return eth_rwa.fetch_rwa_tvl(_get)
 
 
-# ════════════════════════════════════════════
-# BUILD DATAFRAME + MODEL + SIGNALS
-# ════════════════════════════════════════════
 def build_dataframe():
     eth_px = fetch_eth_price()
     stable = fetch_stablecoin_tvl()
@@ -383,5 +352,5 @@ if __name__ == '__main__':
                 subtitle=subtitle,
                 note=(f'Confluence (green) = 7-day realised vol above {RV_RATIO_THRESH}× the 30-day, '
                       f'price {DD_THRESH:.0f}%+ below its 90-day high, and at or below −1σ on the combined TVL model') + RWA_NOTE,
-                source='Yahoo Finance · DeFiLlama', default='5Y', min_plot_height=420)
+                source='Yahoo Finance · DeFiLlama · Ethereum on-chain · CoinGecko', default='5Y', min_plot_height=420)
     print(f'Saved: {OUTPUT_PATH}')

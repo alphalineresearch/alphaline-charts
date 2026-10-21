@@ -1,0 +1,18 @@
+symbol,coingecko_id,address,decimals,pricing,note
+XAUt,tether-gold,0x68749665FF8D2d112Fa859AA293F07A622782F38,6,gold_oz,Tether Gold (1 troy oz)
+PAXG,pax-gold,0x45804880De22913dAFE09f4980848ECE6EcbAf78,18,gold_oz,Paxos Gold (1 troy oz)
+XAUm,matrixdock-gold,0x2103E845C5E135493Bb6c2A4f0B8651956eA8682,18,gold_oz,Matrixdock Gold (1 troy oz)
+KAU,kinesis-gold,0x14dab79fd7b7b3f748d434812fd6a9aac460ea52,5,gold_g,Kinesis Gold (1 gram)
+BUIDL,blackrock-usd-institutional-digital-liquidity-fund,0x7712c34205737192402172409a8F7ccef8aA2AEc,6,usd,BlackRock BUIDL ($1)
+BRSRV,blackrock-daily-reinvestment-stablecoin-reserve-vehicle,0x3078bcf707e457d3af2f938a2a478bbeea50a942,6,usd,BlackRock stablecoin reserve vehicle ($1)
+USYC,hashnote-usyc,0x136471a34f6ef19fE571EFFC1CA711fdb8E49f2b,6,nav,Hashnote / Circle US Yield Coin
+USDY,ondo-us-dollar-yield,0x96F6eF951840721AdBF46Ac996b59E0235CB985C,18,nav,Ondo US Dollar Yield
+OUSG,ousg,0x1B19C19393e2d034D8Ff31ff34c81252FcBbee92,18,nav,Ondo short-term US Treasuries
+USTB,superstate-short-duration-us-government-securities-fund-ustb,0x43415eB6ff9DB7E26A15b704e7A3eDCe97d31C4e,6,nav,Superstate USTB
+JTRSY,janus-henderson-anemoy-treasury-fund,0x8c213ee79581Ff4984583C6a801e5263418C4b86,6,nav,Janus Henderson Anemoy Treasury
+JAAA,janus-henderson-anemoy-aaa-clo-fund,0x5a0F93D040De44e78F251b03c43be9CF317Dcf64,6,nav,Janus Henderson Anemoy AAA CLO
+EUTBL,eutbl,0xa0769f7A8fC65e47dE93797b4e21C073c117Fc80,5,nav,Spiko EU T-Bills (EUR fund; priced in USD)
+USTBL,spiko-us-t-bills-money-market-fund,0xe4880249745eAc5F1eD9d8F7DF844792D560e750,5,nav,Spiko US T-Bills
+thBILL,theo-short-duration-us-treasury-fund,0x5FA487BCa6158c64046B2813623e20755091DA0b,6,nav,Theo short-duration Treasuries
+mTBILL,midas-mtbill,0xDD629E5241CbC5919847783e6C96B2De4754e438,18,nav,Midas mTBILL
+STAC,securitize-tokenized-aaa-clo-fund,0x51C2d74017390CbBd30550179A16A1c28F7210fc,6,nav,Securitize tokenized AAA CLO

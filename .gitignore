@@ -3,3 +3,4 @@ __pycache__/
 
 # research caches
 research/**/cache/
+data/eth_rwa/rwa_daily.csv

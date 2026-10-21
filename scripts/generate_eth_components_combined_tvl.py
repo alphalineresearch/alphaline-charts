@@ -24,6 +24,7 @@ from plotly.subplots import make_subplots
 import yfinance as yf
 
 from alphaline_theme import apply_theme, write_chart, pct, date_long
+import eth_rwa
 
 # ─────────────────────────────────────────────
 # CONFIG
@@ -48,7 +49,7 @@ RED       = '#8A1A1A'
 GREEN_LIT = '#2ABF7A'
 RED_LIT   = '#D64444'
 
-SOURCE = 'Yahoo Finance · DeFiLlama'
+SOURCE = 'Yahoo Finance · DeFiLlama · Ethereum on-chain · CoinGecko'
 
 
 def hex_to_rgba(h, a=0.35):
@@ -107,44 +108,10 @@ def fetch_defi_tvl():
 
 
 def fetch_rwa_tvl():
-    """DeFiLlama: aggregate RWA TVL on Ethereum across all tracked protocols."""
-    print('Fetching RWA protocol list...')
-    r = _get('https://api.llama.fi/protocols')
-    protocols = r.json()
-    rwa_protocols = [
-        (p['name'], p['slug'])
-        for p in protocols
-        if ('rwa' in p.get('category', '').lower() or
-            'real world' in p.get('category', '').lower())
-        and p.get('chainTvls', {}).get('Ethereum', 0) > ETH_TVL_THRESHOLD
-    ]
-    print(f'  Found {len(rwa_protocols)} RWA protocols on Ethereum')
-
-    all_series = {}
-    for name, slug in rwa_protocols:
-        try:
-            r2   = _get(f'https://api.llama.fi/protocol/{slug}')
-            data = r2.json()
-            if 'chainTvls' in data and 'Ethereum' in data['chainTvls']:
-                hist = data['chainTvls']['Ethereum']['tvl']
-                all_series[name] = pd.Series(
-                    {pd.Timestamp(p['date'], unit='s'): p['totalLiquidityUSD'] for p in hist}
-                )
-            time.sleep(0.25)
-        except Exception as e:
-            print(f'  ! {name}: {e}')
-
-    if not all_series:
-        print('  No RWA data fetched — returning zeros.')
-        return pd.DataFrame(columns=['rwa_tvl_usd'])
-
-    rwa_df = pd.DataFrame(all_series)
-    rwa_df.index = pd.to_datetime(rwa_df.index).normalize()
-    rwa_daily = rwa_df.resample('D').last().ffill()
-    rwa_total = rwa_daily.sum(axis=1).to_frame(name='rwa_tvl_usd')
-    rwa_total = rwa_total.iloc[:-1]
-    print(f'  {len(rwa_total)} rows | latest: ${rwa_total["rwa_tvl_usd"].iloc[-1]/1e9:.3f}B')
-    return rwa_total
+    """RWA on Ethereum: DefiLlama RWA protocols plus tokenized funds and gold read from
+    their Ethereum contracts (DefiLlama stopped counting those on Sep 16, 2026).
+    Shared with the other ETH charts — see scripts/eth_rwa.py."""
+    return eth_rwa.fetch_rwa_tvl(_get)
 
 
 def fetch_eth_price():
