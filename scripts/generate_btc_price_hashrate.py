@@ -2,8 +2,9 @@
 generate_btc_price_hashrate.py
 Alphaline Research — BTC Price & Hash Rate
 
-Fetches BTC price and hash rate history from blockchain.info.
-No API keys required.
+Fetches BTC price and hash rate history from blockchain.info, topped up
+with the days it hasn't published yet (Yahoo Finance price, mempool.space
+hash rate). No API keys required.
 Writes docs/btc_price_hashrate.html to docs/.
 
 Usage:
@@ -13,6 +14,7 @@ Usage:
 import os
 import sys
 import requests
+import yfinance as yf
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
@@ -60,11 +62,46 @@ def fetch_blockchain_chart(chart_name):
     return df[~df.index.duplicated(keep='last')]
 
 
+def recent_price():
+    """Daily BTC close from Yahoo Finance (last 2 months)."""
+    raw = yf.download('BTC-USD', period='2mo', interval='1d', progress=False)
+    close = raw['Close']
+    if isinstance(close, pd.DataFrame):
+        close = close.iloc[:, 0]
+    close.index = pd.to_datetime(close.index).tz_localize(None).normalize()
+    return close.dropna()
+
+
+def recent_hashrate_eh():
+    """Daily average hash rate from mempool.space (last 3 months), EH/s."""
+    resp = requests.get('https://mempool.space/api/v1/mining/hashrate/3m', timeout=30)
+    resp.raise_for_status()
+    s = pd.Series({pd.Timestamp(int(p['timestamp']), unit='s').normalize(): p['avgHashrate'] / 1e18
+                   for p in resp.json()['hashrates']}).sort_index()
+    return s[s > 0]
+
+
+def top_up(df, col, recent, label):
+    """Append the days after df's last date that blockchain.info hasn't published yet."""
+    try:
+        extra = recent()
+    except Exception as e:
+        print(f'  {label} top-up failed ({e}); using blockchain.info only')
+        return df
+    today = pd.Timestamp.utcnow().tz_localize(None).normalize()
+    extra = extra[(extra.index > df.index[-1]) & (extra.index < today)]   # skip today's partial day
+    if len(extra):
+        print(f'  + {len(extra)} newer days from {label} → {extra.index[-1].date()}')
+        df = pd.concat([df, extra.rename(col).to_frame()])
+    return df
+
+
 def build_dataframe():
     print('Fetching BTC price history (blockchain.info)...')
     price_df = fetch_blockchain_chart('market-price')
     price_df.columns = ['price_usd']
     price_df = price_df[price_df['price_usd'] > 0].dropna()
+    price_df = top_up(price_df, 'price_usd', recent_price, 'Yahoo Finance')
     print(f'  {len(price_df)} rows | {price_df.index[0].date()} → {price_df.index[-1].date()} | latest ${price_df["price_usd"].iloc[-1]:,.0f}')
 
     print('Fetching hash rate history (blockchain.info)...')
@@ -72,6 +109,7 @@ def build_dataframe():
     hr_df.columns = ['hashrate_raw']
     hr_df['hashrate_eh'] = hr_df['hashrate_raw'] / 1e6
     hr_df = hr_df[hr_df['hashrate_eh'] > 0].dropna()
+    hr_df = top_up(hr_df[['hashrate_eh']], 'hashrate_eh', recent_hashrate_eh, 'mempool.space')
     hr_df = hr_df[hr_df.index >= price_df.index[0]]
     print(f'  {len(hr_df)} rows | {hr_df.index[0].date()} → {hr_df.index[-1].date()} | latest {hr_df["hashrate_eh"].iloc[-1]:.1f} EH/s')
 
@@ -147,5 +185,5 @@ if __name__ == '__main__':
                           + ('at its high' if _hr_below < 0.5 else f'{_hr_below:.0f}% below its high')
                           + f' · {date_long(hr_df.index[-1])}'),
                 note='Dotted lines = running all-time highs',
-                source='blockchain.info', default='5Y')
+                source='blockchain.info · mempool.space · Yahoo Finance', default='5Y')
     print(f'Saved: {OUTPUT_PATH}')
