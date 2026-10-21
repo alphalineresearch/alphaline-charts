@@ -19,6 +19,8 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import yfinance as yf
 
+from alphaline_theme import apply_theme, write_chart, TEXT_2
+
 # ════════════════════════════════════════════
 # CONFIG
 # ════════════════════════════════════════════
@@ -36,8 +38,6 @@ OUTPUT_PATH = os.path.join('docs', 'btc_copper_gold_bb_squeeze.html')
 # ════════════════════════════════════════════
 # ALPHALINE BRAND COLORS
 # ════════════════════════════════════════════
-NAVY      = '#0A1628'
-NAVY_MID  = '#102240'
 NAVY_LIT  = '#1A3A6E'
 GOLD      = '#D4A843'
 GOLD_LIT  = '#ECC96A'
@@ -50,55 +50,16 @@ RED_LIT   = '#D64444'
 CYAN      = '#22D3EE'
 ORANGE    = '#F97316'
 
-CHART_WIDTH  = 1100
-CHART_HEIGHT = 1080
+SUBPLOT_TITLES = [
+    'BTC monthly · Bollinger (20, 2σ) + Keltner (20, 1.5×ATR)',
+    'BB squeeze %',
+    'Copper / gold ratio ×100',
+]
 
 
 def hex_to_rgba(h, a=0.35):
     h = h.lstrip('#')
     return f'rgba({int(h[0:2],16)},{int(h[2:4],16)},{int(h[4:6],16)},{a})'
-
-
-# ════════════════════════════════════════════
-# ALPHALINE CHART TEMPLATE
-# ════════════════════════════════════════════
-def alphaline_layout(fig, title, height=CHART_HEIGHT,
-                     source='alphalineresearch.com  |  Yahoo Finance · blockchain.info'):
-    fig.update_layout(
-        template='plotly_dark',
-        paper_bgcolor=NAVY, plot_bgcolor=NAVY_MID,
-        height=height, autosize=True,
-        title=dict(
-            text=(
-                f'<span style="font-family:Georgia,serif; font-size:15px; color:{WHITE};">{title}</span>'
-                f'<br><span style="font-family:Courier New,monospace; font-size:8px; color:{GOLD};">ALPHALINE RESEARCH</span>'
-            ),
-            x=0.02, xanchor='left', y=0.985, yanchor='top'
-        ),
-        font=dict(family='Courier New, monospace', color=MIST, size=10),
-        margin=dict(l=60, r=40, t=80, b=120),
-        hoverlabel=dict(bgcolor=NAVY_MID, bordercolor=GOLD,
-                        font=dict(family='Courier New, monospace', size=11, color=WHITE)),
-        legend=dict(
-            orientation='h', yanchor='top', y=-0.08,
-            xanchor='center', x=0.5,
-            bgcolor='rgba(10,22,40,0.8)', bordercolor=STEEL,
-            font=dict(size=9),
-        ),
-        annotations=[
-            dict(text=f'Source: {source}',
-                 xref='paper', yref='paper', x=1.0, y=-0.13,
-                 xanchor='right', yanchor='top',
-                 font=dict(family='Courier New, monospace', size=10, color=MIST),
-                 showarrow=False),
-            dict(text='<b>ALPHALINE RESEARCH</b>',
-                 xref='paper', yref='paper', x=0.0, y=-0.13,
-                 xanchor='left', yanchor='top',
-                 font=dict(family='Courier New, monospace', size=10, color=GOLD),
-                 showarrow=False),
-        ],
-    )
-    return fig
 
 
 # ════════════════════════════════════════════
@@ -249,11 +210,7 @@ def plot_btc_copper_gold_bb_squeeze(btc_a, btc_ind, sq, sq_on, cu_au, cu_au_ma20
         shared_xaxes=True,
         row_heights=[0.44, 0.24, 0.32],
         vertical_spacing=0.035,
-        subplot_titles=[
-            'BTC/USD — Monthly Price + Bollinger Bands (20, 2σ) + Keltner Channels (20, 1.5×ATR)',
-            'BTC Monthly BB Squeeze %  ·  cyan = deep compression (bottom 20th pct)',
-            'Copper/Gold Ratio ×100  ·  cyan ▲ = cycle low  ·  gold ◆ = MA breakout signal',
-        ]
+        subplot_titles=SUBPLOT_TITLES
     )
 
     # ── Row 1: BTC Price + Bands ──────────────────────────────────────────────
@@ -357,10 +314,9 @@ def plot_btc_copper_gold_bb_squeeze(btc_a, btc_ind, sq, sq_on, cu_au, cu_au_ma20
             line=dict(color=color, width=0.9, dash=dash))
 
     fig.add_annotation(
-        x=close.index[-1], y=entry_threshold, xref='x', yref='y2',
-        text=f'  entry zone ({entry_threshold:.1f}%)', showarrow=False,
-        font=dict(color=CYAN, size=9, family='Courier New, monospace'),
-        xanchor='left',
+        xref='x2 domain', yref='y2', x=0.995, y=entry_threshold, yshift=-9,
+        text=f'entry zone ({entry_threshold:.1f}%)', showarrow=False,
+        font=dict(color=CYAN), xanchor='right',
     )
 
     # ── Row 3: Copper/Gold Ratio ──────────────────────────────────────────────
@@ -428,36 +384,30 @@ def plot_btc_copper_gold_bb_squeeze(btc_a, btc_ind, sq, sq_on, cu_au, cu_au_ma20
         )
 
     # ── Axis styling ──────────────────────────────────────────────────────────
-    axis_style = dict(gridcolor=STEEL, gridwidth=0.3,
-                      tickfont=dict(size=9), showgrid=True)
+    apply_theme(fig)
+    fig.update_yaxes(row=1, col=1, type='log', tickformat='$,.2~f', title_text='BTC Price (log)')
+    fig.update_yaxes(row=2, col=1, title_text='Squeeze %', ticksuffix='%')
+    fig.update_yaxes(row=3, col=1, rangemode='normal', range=[0.1, None], title_text='Cu/Au ×100')
 
-    fig.update_yaxes(row=1, col=1, type='log', zeroline=False,
-        title_text='BTC Price (log)',
-        title_font=dict(size=9, color=MIST), **axis_style)
-    fig.update_yaxes(row=2, col=1, zeroline=True, zerolinecolor=STEEL,
-        title_text='Squeeze %',
-        title_font=dict(size=9, color=MIST), **axis_style)
-    fig.update_yaxes(row=3, col=1, zeroline=False, rangemode='normal',
-        range=[0.1, None],
-        title_text='Cu/Au ×100',
-        title_font=dict(size=9, color=MIST), **axis_style)
-    fig.update_xaxes(gridcolor=STEEL, gridwidth=0.3, tickfont=dict(size=9))
-
-    # Subplot title styling
+    # Subplot titles: small panel labels, top-left of each panel
     for ann in fig.layout.annotations:
-        ann.font = dict(family='Courier New, monospace', size=10, color=MIST)
-        ann.x = 0.01
-        ann.xanchor = 'left'
+        if ann.text in SUBPLOT_TITLES:
+            ann.font = dict(size=12, color=TEXT_2)
+            ann.x = 0.005
+            ann.xanchor = 'left'
 
-    title_str = (
-        'BTC Monthly BB Squeeze × Copper/Gold Ratio — Macro Cycle Convergence'
-        f'<br><span style="font-family:Courier New,monospace; font-size:9px; color:{MIST};">'
-        'Cyan bands = BTC BB deep compression (bottom 20th pct)  ·  '
-        'cyan ▲ = Cu/Au cycle low  ·  gold ◆ = Cu/Au MA breakout</span>'
-    )
-
-    alphaline_layout(fig, title_str, height=CHART_HEIGHT)
-    return fig
+    # ── Live reading for the page subtitle ──
+    sq_now = sq.iloc[-1]
+    parts = [f'<b>Squeeze {sq_now:.1f}%</b> ' + ('(in the entry zone)' if sq_now <= entry_threshold
+                                                 else f'(entry zone ≤ {entry_threshold:.1f}%)'),
+             f'Cu/Au {cu_au.iloc[-1]:.3f}']
+    if len(cycle_low_dates):
+        parts.append(f'last Cu/Au cycle low {pd.Timestamp(cycle_low_dates[-1]):%b %Y}')
+    if len(breakout_dates):
+        parts.append(f'last breakout {pd.Timestamp(breakout_dates[-1]):%b %Y}')
+    parts.append(f'BTC ${close.iloc[-1]:,.0f} ({close.index[-1]:%b %Y} close)')
+    subtitle = '  ·  '.join(parts)
+    return fig, subtitle
 
 
 # ════════════════════════════════════════════
@@ -470,10 +420,16 @@ if __name__ == '__main__':
     btc_a, btc_ind, sq, sq_on, cu_au, cu_au_ma20, \
         cycle_low_dates, breakout_dates, entry_threshold = build_dataframe()
 
-    fig = plot_btc_copper_gold_bb_squeeze(
+    fig, subtitle = plot_btc_copper_gold_bb_squeeze(
         btc_a, btc_ind, sq, sq_on, cu_au, cu_au_ma20,
         cycle_low_dates, breakout_dates, entry_threshold
     )
 
-    fig.write_html(OUTPUT_PATH, include_plotlyjs='cdn', config={'responsive': True})
+    # long-cycle chart: opens on the full history
+    write_chart(fig, OUTPUT_PATH,
+                title='BTC Monthly Squeeze × Copper/Gold Cycle',
+                subtitle=subtitle,
+                note='Cyan bands = BTC Bollinger squeeze in its bottom 20th percentile · '
+                     'cyan ▲ = copper/gold cycle low · gold ◆ = copper/gold breakout above its 20-month MA',
+                source='Yahoo Finance · blockchain.info', default='All', min_plot_height=480)
     print(f'Saved: {OUTPUT_PATH}')
