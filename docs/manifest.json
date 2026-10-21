@@ -107,5 +107,152 @@
       "title": "Mstr Pnav Heatmap",
       "updated": "2026-10-21"
     }
-  ]
+  ],
+  "signals": {
+    "asOf": "2026-10-19",
+    "generated": "2026-10-21T01:25Z",
+    "items": [
+      {
+        "id": "btc-risk",
+        "name": "BTC Opportunity Signal",
+        "val": "On",
+        "unit": "",
+        "state": "",
+        "color": "#2ABF7A",
+        "sub": "Score 47 · fires at 40+ · on since Oct 10, 2026",
+        "viz": {
+          "type": "recency",
+          "bucket": 0
+        }
+      },
+      {
+        "id": "btc-hash",
+        "name": "BTC Hashrate",
+        "val": "+4.5%",
+        "unit": "7d",
+        "state": "Expanding",
+        "color": "#2ABF7A",
+        "sub": "1,062 EH/s · 19% below its high"
+      },
+      {
+        "id": "btc-cost",
+        "name": "BTC vs. Production Cost",
+        "val": "+30%",
+        "unit": "",
+        "state": "Above cost",
+        "color": "#8FA2B2",
+        "sub": "$81,562 price vs. $62,701 cost to mine",
+        "viz": {
+          "type": "scale",
+          "min": -50,
+          "max": 150,
+          "v": 30.1,
+          "zones": [
+            [
+              -50,
+              0,
+              "opp"
+            ]
+          ],
+          "ticks": [
+            0
+          ]
+        }
+      },
+      {
+        "id": "eth-model",
+        "name": "ETH Model Price",
+        "val": "$2,826",
+        "unit": "",
+        "state": "ETH 15% below",
+        "color": "#2ABF7A",
+        "sub": "ETH trades at $2,405",
+        "viz": {
+          "type": "scale",
+          "min": -50,
+          "max": 50,
+          "v": -14.9,
+          "zones": [
+            [
+              -50,
+              -20,
+              "opp"
+            ],
+            [
+              20,
+              50,
+              "str"
+            ]
+          ],
+          "ticks": [
+            0
+          ]
+        }
+      },
+      {
+        "id": "eth-secured",
+        "name": "Secured on Ethereum",
+        "val": "$196.5B",
+        "unit": "",
+        "chg": -1.0,
+        "state": "Down this week",
+        "color": "#E86A6A",
+        "sub": "",
+        "viz": {
+          "type": "rows",
+          "rows": [
+            [
+              "Stablecoins",
+              "$145.0B",
+              0.0
+            ],
+            [
+              "DeFi",
+              "$49.6B",
+              -3.9
+            ],
+            [
+              "Tokenized assets",
+              "$1.9B",
+              0.7
+            ]
+          ]
+        }
+      },
+      {
+        "id": "dat",
+        "name": "Treasury Companies · mNAV",
+        "val": "",
+        "unit": "",
+        "state": "",
+        "color": "#8FA2B2",
+        "sub": "Market cap ÷ net assets (crypto + cash − debt − preferred)",
+        "viz": {
+          "type": "rows",
+          "rows": [
+            [
+              "MSTR · BTC",
+              "1.09×",
+              null
+            ],
+            [
+              "ASST · BTC",
+              "1.67×",
+              null
+            ],
+            [
+              "BMNR · ETH",
+              "0.88×",
+              null
+            ],
+            [
+              "SBET · ETH",
+              "0.77×",
+              null
+            ]
+          ]
+        }
+      }
+    ]
+  }
 }
