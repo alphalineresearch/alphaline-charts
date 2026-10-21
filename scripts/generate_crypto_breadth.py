@@ -122,7 +122,26 @@ def load_store():
     if not parts:
         return pd.DataFrame(columns=['date', 'id', 'price', 'mcap'])
     df = pd.concat(parts, ignore_index=True)
-    return df.drop_duplicates(['date', 'id'], keep='last')
+    return drop_bad_prints(df.drop_duplicates(['date', 'id'], keep='last'))
+
+
+def drop_bad_prints(df):
+    """CoinMarketCap's snapshots hold a few bad readings (e.g. IOV at a $2T market cap on
+    Oct 3, 2021; ION at $71B in Apr 2022). Drop a coin's week when its market cap is over
+    20× both neighbouring weeks, when it shows up for one isolated week above $10B, or
+    when anything other than BTC is worth more than BTC."""
+    s = df.sort_values(['id', 'date'])
+    g = s.groupby('id')['mcap']
+    prev, nxt = g.shift(1), g.shift(-1)
+    near = pd.concat([prev, nxt], axis=1).max(axis=1)
+    spike = near.notna() & (s['mcap'] > 20 * near) & (s['mcap'] > 1e9)
+    orphan = prev.isna() & nxt.isna() & (s['mcap'] > 1e10)
+    btc = s.loc[s['id'] == 1].set_index('date')['mcap']
+    above_btc = (s['id'] != 1) & (s['mcap'] > s['date'].map(btc))
+    bad = spike | orphan | above_btc
+    if bad.any():
+        print(f'  dropped {int(bad.sum())} bad snapshot readings')
+    return s[~bad].sort_values(['date', 'id']).reset_index(drop=True)
 
 
 def _append(rows, meta):
