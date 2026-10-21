@@ -712,7 +712,7 @@ def plot_risk_score_history(sig, score_now):
             xanchor='right', opacity=0.55
         )
 
-    fig.update_yaxes(title_text='Risk Score  (0–100)', range=[0, 100],
+    fig.update_yaxes(title_text='Signal Score  (0–100)', range=[0, 100],
                      title_font=dict(size=11), zeroline=False, row=1, col=1)
     fig.update_yaxes(title_text='$/BTC  (log)', type='log',
                      title_font=dict(size=11), zeroline=False, autorange=True, row=2, col=1)
@@ -722,7 +722,7 @@ def plot_risk_score_history(sig, score_now):
                      range=[sig.index[0], _x_future], row=2, col=1)
 
     alphaline_layout(fig,
-        'BTC Risk Score History  |  Background = Days Since Signal (score ≥ 40)',
+        'BTC Opportunity Signal  |  Shading = days since the signal fired (score ≥ 40)',
         height=CHART_HEIGHT)
     fig.update_layout(margin=dict(b=160), legend=dict(font=dict(size=8)))
     return fig
@@ -816,7 +816,7 @@ def plot_risk_score_recency(sig):
         hovertemplate='%{x|%Y-%m-%d}<br>1.5× Cost: $%{y:,.0f}<extra></extra>'
     ), row=2, col=1)
 
-    fig.update_yaxes(title_text='Risk Score  (0–100)', range=[0, 100],
+    fig.update_yaxes(title_text='Signal Score  (0–100)', range=[0, 100],
                      title_font=dict(size=11), zeroline=False, row=1, col=1)
     fig.update_yaxes(title_text='$/BTC  (log)', type='log',
                      title_font=dict(size=11), zeroline=False, row=2, col=1)
@@ -824,7 +824,7 @@ def plot_risk_score_recency(sig):
     fig.update_xaxes(title_text='Date', title_font=dict(size=11), row=2, col=1)
 
     alphaline_layout(fig,
-        'BTC Risk Score — Area & Price Color = Days Since Signal Fired (score ≥ 40)  |  2016+',
+        'BTC Opportunity Signal — Recency  |  Colour = days since the signal fired (score ≥ 40)  |  2016+',
         height=CHART_HEIGHT)
     fig.update_layout(margin=dict(b=160), legend=dict(font=dict(size=8)))
     return fig
@@ -891,7 +891,7 @@ def plot_mstr_signal_recency(sig, mstr_px):
                     row=r, col=1
                 )
 
-    fig.update_yaxes(title_text='BTC Score  (0–100)', range=[0, 100],
+    fig.update_yaxes(title_text='BTC Signal Score  (0–100)', range=[0, 100],
                      title_font=dict(size=11), zeroline=False, row=1, col=1)
     fig.update_yaxes(title_text='MSTR $/share  (log)', type='log',
                      title_font=dict(size=11), zeroline=False, row=2, col=1)
@@ -899,7 +899,7 @@ def plot_mstr_signal_recency(sig, mstr_px):
     fig.update_xaxes(title_text='Date', title_font=dict(size=11), row=2, col=1)
 
     alphaline_layout(fig,
-        'MSTR Price vs BTC Signal Recency  |  BTC score ≥ 40 buy windows mapped to MSTR',
+        'MSTR vs. BTC Opportunity Signal  |  Signal windows (score ≥ 40) mapped to MSTR',
         height=CHART_HEIGHT)
     return fig
 

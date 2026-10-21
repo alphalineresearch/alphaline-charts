@@ -367,7 +367,7 @@ def plot_model_compact(df, r2_a):
         f'Z: {latest["zscore"]:+.2f}σ  ·  '
         f'R²={r2_a:.3f}'
     )
-    alphaline_layout(fig, 'ETH Combined TVL Model', subtitle=subtitle, height=CHART_HEIGHT)
+    alphaline_layout(fig, 'ETH Model Price  |  Combined TVL Model (stablecoins + DeFi + RWA)', subtitle=subtitle, height=CHART_HEIGHT)
 
     fig.update_layout(
         showlegend=True,

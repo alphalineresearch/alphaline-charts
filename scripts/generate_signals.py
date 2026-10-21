@@ -263,6 +263,88 @@ def tile_treasuries(price_fn=fetch_last_close):
 
 
 # ════════════════════════════════════════════
+# HOMEPAGE MINI-CHARTS ("More charts" cards)
+# Small, always-current line charts drawn by the homepage as SVG —
+# replaces the static PNG thumbnails. ~3 years, ~150 points per line.
+# ════════════════════════════════════════════
+GOLD, MIST_L, GREEN_L = '#D4A843', '#B4C2CD', '#2ABF7A'
+THUMB_YEARS = 3
+THUMB_POINTS = 150
+
+
+def _thin(s, start):
+    s = s.loc[start:].dropna()
+    if len(s) > THUMB_POINTS:
+        idx = np.linspace(0, len(s) - 1, THUMB_POINTS).round().astype(int)
+        s = s.iloc[idx]
+    return s
+
+
+def _pts(s):
+    return [float(f'{v:.4g}') for v in s.values]
+
+
+def _thumb(id_, title, g, series, note, log=False, ymin=None, ymax=None, ref=None):
+    end = max(s.index[-1] for _, s, _ in series)
+    start = end - pd.DateOffset(years=THUMB_YEARS)
+    return dict(id=id_, t=title, g=g, href=f'charts.html#{id_}', log=log, ymin=ymin, ymax=ymax,
+                ref=ref or [], note=note, start=start.strftime('%Y-%m'),
+                series=[dict(n=n, c=c, pts=_pts(_thin(s, start))) for n, s, c in series])
+
+
+def thumb_btc_signal():
+    sc = pick(read_traces('btc_risk_score_history.html'), 'Composite Score (14d avg)', 'Composite Score')
+    v = sc.iloc[-1]
+    return _thumb('btc-risk', 'BTC Opportunity Signal', 'btc', [('Score', sc, GOLD)],
+                  f'Score {v:.0f} · signal {"on" if v >= SIGNAL_THRESHOLD else "off"} (fires at {SIGNAL_THRESHOLD}+)',
+                  ymin=0, ymax=100, ref=[SIGNAL_THRESHOLD])
+
+def thumb_btc_cost():
+    tr = read_traces('btc_price_vs_production_cost.html')
+    p, c = pick(tr, 'BTC Price'), pick(tr, 'Production Cost (hist)', 'Production Cost')
+    return _thumb('btc-cost', 'BTC Price vs. Production Cost', 'btc',
+                  [('BTC price', p, GOLD), ('Cost to mine', c, GREEN_L)],
+                  f'{usd(p.iloc[-1])} price vs. {usd(c.iloc[-1])} cost', log=True)
+
+def thumb_eth_model():
+    tr = read_traces('eth_combined_tvl.html')
+    p, m = pick(tr, 'ETH Price'), pick(tr, 'Model (combined TVL)', 'Model')
+    return _thumb('eth-combined', 'ETH Model Price', 'eth',
+                  [('ETH price', p, GOLD), ('Model price', m, MIST_L)],
+                  f'ETH {usd(p.iloc[-1])} · model {usd(m.iloc[-1])}', log=True)
+
+def thumb_eth_secured():
+    tr = read_traces('eth_stacked_tvl.html')
+    st = pick(tr, 'Stablecoins')
+    tot = pd.concat([st, pick(tr, 'DeFi TVL', 'DeFi'), pick(tr, 'RWA TVL', 'RWA')], axis=1).dropna().sum(axis=1)
+    return _thumb('eth-stacked-tvl-mcap', 'Value Secured on Ethereum', 'eth',
+                  [('Total secured', tot, GOLD), ('Stablecoins', st, MIST_L)],
+                  f'{bn(tot.iloc[-1])} total · {bn(st.iloc[-1])} stablecoins', ymin=0)
+
+def thumb_mstr():
+    s = pick(read_traces('mstr_pnav_heatmap.html'), 'mNAV (z-score heatmap)', 'mNAV', 'P/NAV')
+    return _thumb('mstr-pnav', 'MSTR mNAV', 'btc', [('mNAV', s, GOLD)],
+                  f'{s.iloc[-1]:.2f}× net of debt & preferred (14d avg)', ymin=0, ref=[1])
+
+def thumb_btc_rsi():
+    s = pick(read_traces('btc_rsi_weekly.html'), 'RSI(14)')
+    return _thumb('btc-rsi-weekly', 'BTC Weekly RSI(14)', 'btc', [('RSI', s, GOLD)],
+                  f'RSI {s.iloc[-1]:.0f}', ymin=0, ymax=100, ref=[30, 70])
+
+THUMBS = [thumb_btc_signal, thumb_btc_cost, thumb_eth_model, thumb_eth_secured, thumb_mstr, thumb_btc_rsi]
+
+
+def build_thumbs():
+    out = []
+    for fn in THUMBS:
+        try:
+            out.append(fn())
+        except Exception as e:
+            print(f'  thumb {fn.__name__} skipped: {e}', file=sys.stderr)
+    return out
+
+
+# ════════════════════════════════════════════
 # MAIN
 # ════════════════════════════════════════════
 TILE_ORDER = [tile_btc_signal, tile_btc_hashrate, tile_btc_cost,
@@ -291,7 +373,11 @@ def build(previous=None):
                 items.insert(min(order.index(pid), len(items)), prev_items[pid])
     # "Updated" = the most recent date across the chart data
     as_of = max(dates).strftime('%Y-%m-%d') if dates else datetime.now(timezone.utc).strftime('%Y-%m-%d')
-    return dict(asOf=as_of, generated=datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%MZ'), items=items), failed
+    thumbs = build_thumbs()
+    if len(thumbs) < 4 and previous and previous.get('thumbs'):
+        thumbs = previous['thumbs']
+    return dict(asOf=as_of, generated=datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%MZ'),
+                items=items, thumbs=thumbs), failed
 
 
 if __name__ == '__main__':
