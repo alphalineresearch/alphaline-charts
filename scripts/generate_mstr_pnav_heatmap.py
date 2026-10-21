@@ -337,8 +337,9 @@ def build_dataframe():
     # leave those days blank rather than plot a meaningless spike.
     MIN_NET_SHARE = 0.25
     df['pnav'] = (df['mstr_mktcap'] / df['net_assets']).where(df['net_assets'] > MIN_NET_SHARE * df['btc_nav'])
-    df = df.dropna(subset=['pnav'])
-    df['pnav_smooth'] = df['pnav'].ewm(span=SMOOTH_SPAN, adjust=False).mean()
+    # Keep every trading day so the BTC price panel stays continuous; mNAV is
+    # simply blank (NaN) on days where it isn't meaningful.
+    df['pnav_smooth'] = df['pnav'].ewm(span=SMOOTH_SPAN, adjust=False).mean().where(df['pnav'].notna())
 
     # Z-score (calibrated to post-2022 era only)
     cal       = df.loc[ZSCORE_START:, 'pnav_smooth'].clip(upper=ZSCORE_CAP)
@@ -462,9 +463,15 @@ def plot_heatmap_chart(df, cost_series, has_cost, pnav_mu, pnav_std):
     ), row=1, col=1)
 
     # ── Panel 2: P/NAV heatmap bars ─────────────────────────
+    # Each bar runs to the next trading day, so weekends and holidays don't
+    # leave hairline gaps in the heatmap
+    _day_ms = 86_400_000
+    _bar_w = np.append(np.diff(df.index.values).astype('timedelta64[ms]').astype(float), _day_ms)
+    _bar_w = np.minimum(_bar_w, 5 * _day_ms)
     fig.add_trace(go.Bar(
         x=df.index,
         y=df['pnav_smooth'],
+        width=_bar_w, offset=0,
         name='mNAV (z-score heatmap)',
         customdata=np.stack([df['pnav_gross'], df['net_assets'] / 1e9], axis=-1),
         showlegend=False,
