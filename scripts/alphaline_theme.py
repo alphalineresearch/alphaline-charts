@@ -54,7 +54,6 @@ FONT_STACK_LOAD = '"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-s
 
 MIN_FONT   = 12
 TICK_FONT  = 12
-LEGEND_FONT = 12
 AXIS_TITLE_FONT = 12
 HOVER_FONT = 13
 
@@ -126,15 +125,9 @@ def apply_theme(fig, legend=True):
         margin=dict(l=12, r=16, t=24, b=8, pad=0),
         hoverlabel=dict(bgcolor=NAVY_MID, bordercolor=GOLD,
                         font=dict(size=HOVER_FONT, color=WHITE), align='left'),
+        # The legend is drawn in HTML under the chart by write_chart (Plotly's
+        # own clips and won't wrap well); showlegend just says whether to.
         showlegend=legend,
-        legend=dict(
-            orientation='h', xref='paper', x=0, xanchor='left',
-            yref='container', y=0, yanchor='bottom',
-            bgcolor='rgba(0,0,0,0)', borderwidth=0,
-            font=dict(size=LEGEND_FONT, color=TEXT_2),
-            itemsizing='constant', tracegroupgap=0, entrywidthmode='pixels',
-            title=None,
-        ),
         modebar=dict(bgcolor='rgba(0,0,0,0)', color=TEXT_3, activecolor=GOLD),
     )
     fig.update_xaxes(gridcolor=GRID, gridwidth=1, zeroline=False, linecolor=STEEL,
@@ -148,6 +141,12 @@ def apply_theme(fig, legend=True):
                      tickfont=dict(size=TICK_FONT, color=TEXT_3),
                      title_font=dict(size=AXIS_TITLE_FONT, color=TEXT_3),
                      title_standoff=8)
+    return _finish(fig)
+
+
+def _finish(fig):
+    """Rules that must also catch settings a script makes after apply_theme;
+    run again by write_chart."""
     # 'Date' under a time axis says nothing
     for k in _axis_keys(fig, 'xaxis'):
         ax = fig.layout[k]
@@ -171,8 +170,8 @@ def apply_theme(fig, legend=True):
 # ════════════════════════════════════════════
 # OUTPUT
 # ════════════════════════════════════════════
-def _max_date(fig):
-    end = None
+def _date_extent(fig):
+    lo = hi = None
     for tr in fig.data:
         x = getattr(tr, 'x', None)
         if x is None or not len(x):
@@ -181,9 +180,10 @@ def _max_date(fig):
             xs = pd.to_datetime(pd.Series(list(x)), errors='coerce').dropna()
         except Exception:
             continue
-        if len(xs) and (end is None or xs.max() > end):
-            end = xs.max()
-    return end
+        if len(xs):
+            lo = xs.min() if lo is None else min(lo, xs.min())
+            hi = xs.max() if hi is None else max(hi, xs.max())
+    return lo, hi
 
 
 def _iso(v):
@@ -198,26 +198,35 @@ def write_chart(fig, path, *, title, subtitle='', note='', source='',
     default  — window on load: one of RANGE_BUTTONS.
     end      — last real data date the windows count back from. Defaults to the
                latest x in the figure; pass it when a projection runs past today.
-    The 'All' button restores whatever x range the script set (or autorange).
+    The 'All' button restores the x range the script set; without one it runs
+    from the first date to `end` (+3%).
     """
+    _finish(fig)
     layout = fig.layout
     x_keys = _axis_keys(fig, 'xaxis')
     y_keys = _axis_keys(fig, 'yaxis')
 
-    all_range = None
-    if layout.xaxis.range is not None:
-        all_range = [_iso(v) for v in layout.xaxis.range]
-
     # Axes with a range set by the script (score 0–100 etc.) stay fixed
     fixed_y = [k for k in y_keys if layout[k].range is not None]
 
-    end = pd.Timestamp(end) if end is not None else _max_date(fig)
+    want_legend = layout.showlegend is not False
+    layout.showlegend = False
+
+    first, last = _date_extent(fig)
+    end = pd.Timestamp(end) if end is not None else last
+    all_range = None
+    if layout.xaxis.range is not None:
+        all_range = [_iso(v) for v in layout.xaxis.range]
+    elif first is not None and end is not None:
+        all_range = [_iso(first), _iso(end + (end - first) * 0.03)]
+
     if not ranges:
         default = None
-    if default and default != 'All' and end is not None:
-        start, stop = _window(default, end)
-        for k in x_keys:
-            layout[k].range = [_iso(start), _iso(stop)]
+    if default and end is not None:
+        win = all_range if default == 'All' else [_iso(v) for v in _window(default, end)]
+        if win:
+            for k in x_keys:
+                layout[k].range = win
 
     cfg = dict(
         ranges=RANGE_BUTTONS if ranges else [],
@@ -226,6 +235,7 @@ def write_chart(fig, path, *, title, subtitle='', note='', source='',
         all=all_range,
         fixedY=fixed_y,
         xKeys=x_keys,
+        legend=want_legend,
         fontLoaded=FONT_STACK_LOAD,
     )
     div = fig.to_html(
@@ -277,17 +287,24 @@ _PAGE = """<!DOCTYPE html>
 <link rel="stylesheet" href="{fonts}">
 <script>
 (function () {{
-  // Embed mode = inside the website's iframe, unless that iframe has been
-  // blown up to (roughly) the whole screen by the site's full-screen button.
-  var q = new URLSearchParams(location.search), e = q.get('embed'), inFrame;
+  // Embed mode = inside the website's iframe (title hidden; the site shows it).
+  // Not in embed mode: standalone, true full screen, or when the site posts
+  // {{alphaline: 'fullscreen', on: true}} from its maximise overlay.
+  // ?embed=1 / ?embed=0 force either way.
+  var q = new URLSearchParams(location.search), e = q.get('embed'), inFrame, told = null;
   try {{ inFrame = window.self !== window.top; }} catch (err) {{ inFrame = true; }}
   function check() {{
-    var full = window.innerHeight >= screen.availHeight - 180 && window.innerWidth >= screen.availWidth - 40;
+    var full = told !== null ? told
+      : (window.innerHeight >= screen.height - 2 && window.innerWidth >= screen.width - 2);
     var on = e === '1' || (e !== '0' && inFrame && !full);
     document.documentElement.classList.toggle('embed', on);
   }}
   check();
   window.addEventListener('resize', check);
+  window.addEventListener('message', function (ev) {{
+    var d = ev.data || {{}};
+    if (d.alphaline === 'fullscreen') {{ told = !!d.on; check(); window.dispatchEvent(new Event('resize')); }}
+  }});
 }})();
 </script>
 <style>{css}</style>
@@ -304,6 +321,7 @@ _PAGE = """<!DOCTYPE html>
 <main class="al-plot">
 {plot}
 </main>
+<div class="al-legend" role="group" aria-label="Series (click to show or hide)"></div>
 <footer class="al-foot">
   <a class="al-mark" href="https://alphalineresearch.com" target="_blank" rel="noopener"><i></i>Alphaline Research</a>
   <span class="al-src">{source}</span>
@@ -336,8 +354,18 @@ h1 { margin: 0 0 4px; font-family: 'Cormorant Garamond', Georgia, serif; font-we
 .al-ranges button.on { color: var(--navy); background: var(--gold); border-color: var(--gold);
   position: relative; z-index: 2; }
 .al-ranges button:focus-visible { outline: 2px solid var(--gold-l); outline-offset: 1px; }
-.al-plot { flex: 1 1 auto; min-height: __MINH__px; position: relative; padding: 0 8px; }
+.al-plot { flex: 1 1 auto; min-height: min(__MINH__px, 50vh); position: relative; padding: 0 8px; }
 .al-plot > div { height: 100%; }
+.al-legend { display: flex; flex-wrap: wrap; gap: 2px 18px; padding: 2px 20px 2px 24px; }
+.al-legend:empty { display: none; }
+.al-legend button { display: inline-flex; align-items: center; gap: 7px; padding: 3px 0; border: 0;
+  background: none; cursor: pointer; font: 400 12px/1.3 'IBM Plex Sans', system-ui, sans-serif;
+  color: var(--t2); text-align: left; }
+.al-legend button:hover { color: var(--white); }
+.al-legend button.off { opacity: .4; }
+.al-legend button.off span { text-decoration: line-through; }
+.al-legend i { flex: 0 0 auto; display: inline-block; width: 18px; height: 0; border-top: 2px solid; }
+.al-legend i.box { width: 11px; height: 11px; border: 0; }
 .al-foot { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center;
            gap: 2px 16px; padding: 4px 20px 10px; font-size: 12px; color: var(--t3); }
 .al-mark { display: inline-flex; align-items: center; gap: 7px; color: var(--gold); text-decoration: none;
@@ -354,6 +382,7 @@ h1 { margin: 0 0 4px; font-family: 'Cormorant Garamond', Georgia, serif; font-we
   .al-ranges { width: 100%; }
   .al-ranges button { flex: 1 1 0; padding: 8px 0; }
   .al-plot { padding: 0 2px; }
+  .al-legend { padding: 2px 12px; gap: 0 14px; }
   .al-foot { padding: 4px 12px 8px; }
   .modebar-container { display: none !important; }
 }
@@ -368,6 +397,27 @@ _POST_SCRIPT = r"""
 
   // ── y refit: fit every auto y-axis to the data inside the visible x window ──
   function axName(id) { return (id.charAt(0) === 'x' ? 'xaxis' : 'yaxis') + id.slice(1); }
+  // log axes: the densest 1-2-5 style tick set that still reads cleanly
+  function logTicks(a, b) {
+    var max = mq.matches ? 5 : 7, best = null;
+    var sets = [[1], [1, 2, 5], [1, 1.5, 2, 3, 5, 7], [1, 1.25, 1.5, 2, 2.5, 3, 4, 5, 6, 7, 8, 9]];
+    for (var s = 0; s < sets.length; s++) {
+      var vals = [];
+      for (var k = Math.floor(a); k <= Math.ceil(b); k++) sets[s].forEach(function (m) {
+        var v = m * Math.pow(10, k), l = Math.log10(v);
+        if (l >= a && l <= b) vals.push(+v.toPrecision(6));
+      });
+      if (vals.length > max && best) break;
+      best = vals;
+      if (vals.length > max) break;
+    }
+    if (best.length > max) {            // many decades: every n-th power of ten
+      var step = Math.ceil(best.length / max);
+      best = best.filter(function (v, i) { return i % step === 0; });
+    }
+    return best;
+  }
+
   function refit() {
     var fl = gd._fullLayout, cd = gd.calcdata || [], ext = {};
     gd._fullData.forEach(function (tr, i) {
@@ -398,6 +448,7 @@ _POST_SCRIPT = r"""
       var pad = (b - a) * 0.06 || (e.log ? 0.05 : Math.abs(a) * 0.05 || 1);
       upd[ya + '.range'] = [a - pad, b + pad];
       upd[ya + '.autorange'] = false;
+      if (e.log) { upd[ya + '.tickmode'] = 'array'; upd[ya + '.tickvals'] = logTicks(a - pad, b + pad); }
     });
     if (Object.keys(upd).length) { busy = true; Plotly.relayout(gd, upd).then(function () { busy = false; }); }
   }
@@ -433,6 +484,46 @@ _POST_SCRIPT = r"""
     refit();
   });
 
+  // ── HTML legend: one entry per trace (or legend group), click to toggle ──
+  function buildLegend() {
+    var box = document.querySelector('.al-legend');
+    if (!box || !C.legend) return;
+    var seen = {};
+    gd._fullData.forEach(function (tr, i) {
+      if (!tr.showlegend || !tr.name) return;
+      var grp = tr.legendgroup, key = grp ? 'g:' + grp + ':' + tr.name : 'i:' + i;
+      if (seen[key]) return;
+      seen[key] = 1;
+      var idx = gd._fullData.map(function (t, j) { return (grp ? t.legendgroup === grp : j === i) ? j : -1; })
+                            .filter(function (j) { return j >= 0; });
+      var b = document.createElement('button'), sw = document.createElement('i'), t = document.createElement('span');
+      b.type = 'button';
+      var fill = tr.fill && tr.fill !== 'none', mk = tr.mode && tr.mode.indexOf('lines') < 0;
+      if (fill || mk || tr.type === 'bar') {
+        sw.className = 'box';
+        var c = fill ? tr.fillcolor : tr.marker && tr.marker.color;
+        sw.style.background = typeof c === 'string' ? c : '#8FA2B2';
+      } else {
+        sw.style.borderTopColor = tr.line && tr.line.color || '#8FA2B2';
+        if (tr.line && tr.line.dash && tr.line.dash !== 'solid') sw.style.borderTopStyle = tr.line.dash === 'dot' ? 'dotted' : 'dashed';
+        if (tr.opacity < 1) sw.style.opacity = tr.opacity;
+      }
+      t.textContent = tr.name.replace(/^█\s*/, '');   // some names carry their own block glyph
+      b.appendChild(sw); b.appendChild(t);
+      function sync() { b.classList.toggle('off', gd._fullData[idx[0]].visible !== true); b.setAttribute('aria-pressed', b.classList.contains('off') ? 'false' : 'true'); }
+      b.addEventListener('click', function () {
+        var on = gd._fullData[idx[0]].visible === true;
+        busy = true;
+        Plotly.restyle(gd, { visible: on ? 'legendonly' : true }, idx).then(function () { busy = false; sync(); refit(); });
+      });
+      sync();
+      box.appendChild(b);
+    });
+  }
+  // this script runs while the page is still parsing; the legend box comes after it
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', buildLegend);
+  else buildLegend();
+
   // ── phones: fewer ticks ──
   var mq = window.matchMedia('(max-width: 640px)');
   function ticks() {
@@ -442,12 +533,26 @@ _POST_SCRIPT = r"""
     busy = true;
     return Plotly.relayout(gd, upd).then(function () { busy = false; });
   }
-  if (mq.addEventListener) mq.addEventListener('change', ticks); else mq.addListener(ticks);
+  function onBreakpoint() { ticks().then(function () { refit(); }); }
+  if (mq.addEventListener) mq.addEventListener('change', onBreakpoint); else mq.addListener(onBreakpoint);
 
   // ── once the web fonts are in, redraw so Plotly measures them ──
   var fontsIn = document.fonts && document.fonts.load
     ? Promise.all([document.fonts.load('12px "IBM Plex Sans"'), document.fonts.load('600 12px "IBM Plex Sans"')]).catch(function () {})
     : Promise.resolve();
+
+  // Plotly only watches the window; the header can change height on its own
+  // (fonts arriving, embed toggling, subtitle wrapping), so watch the box.
+  if (window.ResizeObserver) {
+    var lastH = 0, lastW = 0, raf = 0;
+    new ResizeObserver(function () {
+      var h = gd.clientHeight, w = gd.clientWidth;
+      if (Math.abs(h - lastH) < 1 && Math.abs(w - lastW) < 1) return;
+      lastH = h; lastW = w;
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(function () { Plotly.Plots.resize(gd); });
+    }).observe(gd);
+  }
 
   ticks().then(function () { refit(); });
   fontsIn.then(function () {
