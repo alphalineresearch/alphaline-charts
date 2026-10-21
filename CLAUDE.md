@@ -16,6 +16,7 @@ Daily-updated interactive Plotly charts for **alphalineresearch.com** (independe
 - After any change, run the script(s), then `python scripts/generate_manifest.py`, and check `docs/manifest.json` still has 6 `signals.items` and 6 `signals.thumbs`.
 
 ## Brand (match the website)
+Master copy: `C:\Users\cwhit\Documents\Alphaline Research\BRAND.md` — read it for the full design system and the public model names. Summary:
 - Colours: navy `#0A1628` (paper), navy-mid `#102240` (plot), gold `#D4A843`, gold-light `#ECC96A`, gold-dim `#8A6B25`, white `#F8FAFB`, text-2 `#B4C2CD`, text-3 `#8FA2B2`, steel `#374D61` (borders only), green `#2ABF7A`, red `#E86A6A` / `#D64444`, ETH blue `#8FAEE6`.
 - Fonts on the site: **IBM Plex Sans** (UI/body), **Cormorant Garamond** 700 (headings), IBM Plex Mono (numbers only, sparingly). Nothing smaller than 12px.
 - Conventions: log scale on BTC/ETH price axes; regime shading green = opportunity, red = stretched; z-score bars red if positive, green if negative; finance-style negatives in labels, e.g. (3.9%).

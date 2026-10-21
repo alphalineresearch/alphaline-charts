@@ -20,6 +20,8 @@ from plotly.subplots import make_subplots
 from sklearn.linear_model import LinearRegression
 import yfinance as yf
 
+from alphaline_theme import apply_theme, write_chart, sigma, date_long
+
 # ════════════════════════════════════════════
 # CONFIG
 # ════════════════════════════════════════════
@@ -35,55 +37,12 @@ OUTPUT_PATH = os.path.join('docs', 'eth_combined_tvl.html')
 # ════════════════════════════════════════════
 # ALPHALINE BRAND COLORS
 # ════════════════════════════════════════════
-NAVY      = '#0A1628'
-NAVY_MID  = '#102240'
 GOLD      = '#D4A843'
 GOLD_LIT  = '#ECC96A'
-WHITE     = '#F8FAFB'
-MIST      = '#7A8F9F'
-STEEL     = '#374D61'
 RED_LIT   = '#D64444'
 GREEN_LIT = '#2ABF7A'
 
-CHART_WIDTH  = 1100
-CHART_HEIGHT = 920
-
-
-# ════════════════════════════════════════════
-# ALPHALINE CHART TEMPLATE
-# ════════════════════════════════════════════
-def alphaline_layout(fig, title, height=CHART_HEIGHT, subtitle='',
-                     source='alphalineresearch.com  |  Yahoo Finance  |  DeFiLlama'):
-    fig.update_layout(
-        template='plotly_dark',
-        paper_bgcolor=NAVY, plot_bgcolor=NAVY_MID,
-        height=height, autosize=True,
-        showlegend=False,
-        title=dict(
-            text=(
-                f'<span style="font-family:Georgia,serif; font-size:15px; color:{WHITE};">{title}</span>'
-                f'<br><span style="font-family:Courier New,monospace; font-size:8px; color:{GOLD};">ALPHALINE RESEARCH</span>'
-                + (f'<br><span style="font-family:Courier New,monospace; font-size:9px; color:{MIST};">{subtitle}</span>' if subtitle else '')
-            ),
-            x=0.02, xanchor='left', y=0.985, yanchor='top'
-        ),
-        font=dict(family='Courier New, monospace', color=MIST, size=10),
-        margin=dict(l=40, r=20, t=80, b=100),
-        xaxis=dict(gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5, zeroline=False,
-                   showspikes=True, spikecolor=MIST, spikethickness=1, spikedash='dot'),
-        xaxis2=dict(gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5, zeroline=False),
-        yaxis=dict(gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5, zeroline=False),
-        yaxis2=dict(gridcolor='rgba(212,168,67,0.03)', gridwidth=0.4, zeroline=False),
-        hoverlabel=dict(bgcolor=NAVY_MID, bordercolor=GOLD,
-                        font=dict(family='Courier New, monospace', size=11, color=WHITE)),
-        annotations=[
-            dict(text=f'Source: {source}', xref='paper', yref='paper',
-                 x=0.0, y=-0.03, xanchor='left', yanchor='top',
-                 font=dict(family='Courier New, monospace', size=8, color=STEEL), showarrow=False),
-
-        ],
-    )
-    return fig
+SOURCE = 'Yahoo Finance · DeFiLlama'
 
 
 # ════════════════════════════════════════════
@@ -362,28 +321,17 @@ def plot_model_compact(df, r2_a):
 
     latest = model_df.iloc[-1]
     subtitle = (
-        f'ETH: ${latest["eth_price"]:,.0f}  ·  '
-        f'Model: ${latest["eth_model"]:,.0f}  ·  '
-        f'Z: {latest["zscore"]:+.2f}σ  ·  '
-        f'R²={r2_a:.3f}'
+        f'<b>ETH ${latest["eth_price"]:,.0f}</b>  ·  '
+        f'Model ${latest["eth_model"]:,.0f}  ·  '
+        f'Z {sigma(latest["zscore"])}  ·  '
+        f'R² {r2_a:.3f}  ·  {date_long(model_df.index[-1])}'
     )
-    alphaline_layout(fig, 'ETH Model Price  |  Combined TVL Model (stablecoins + DeFi + RWA)', subtitle=subtitle, height=CHART_HEIGHT)
 
-    fig.update_layout(
-        showlegend=True,
-        legend=dict(
-            bgcolor='rgba(10,22,40,0.0)', bordercolor='rgba(0,0,0,0)', borderwidth=0,
-            font=dict(size=9, color=MIST),
-            orientation='h', x=0.5, xanchor='center',
-            y=-0.11, yanchor='top',
-            tracegroupgap=0,
-        ),
-        margin=dict(l=40, r=20, t=80, b=100),
-    )
+    apply_theme(fig)
     fig.update_yaxes(type='log', tickformat='$,.0f', title_text='', row=1, col=1)
     fig.update_yaxes(title_text='Secured/Mcap', row=2, col=1)
     fig.update_yaxes(title_text='Z-score (σ)', row=3, col=1)
-    return fig
+    return fig, subtitle
 
 
 # ════════════════════════════════════════════
@@ -409,6 +357,10 @@ if __name__ == '__main__':
 
     print(f'Model R²: {r2_a:.3f} | Z-score: {df["zscore"].iloc[-1]:+.2f}σ')
 
-    fig = plot_model_compact(df, r2_a)
-    fig.write_html(OUTPUT_PATH, include_plotlyjs='cdn', config={'responsive': True})
+    fig, subtitle = plot_model_compact(df, r2_a)
+    write_chart(fig, OUTPUT_PATH,
+                title='ETH Model Price',
+                subtitle=subtitle,
+                note='Combined TVL model (stablecoins + DeFi + RWA) · bands at ±1σ and ±2σ',
+                source=SOURCE, default='3Y', min_plot_height=420)
     print(f'Saved: {OUTPUT_PATH}')
