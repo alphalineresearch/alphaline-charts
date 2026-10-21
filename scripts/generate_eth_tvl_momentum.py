@@ -24,6 +24,8 @@ from plotly.subplots import make_subplots
 import requests
 import yfinance as yf
 
+from alphaline_theme import apply_theme, write_chart, pct, date_long
+
 # ════════════════════════════════════════════
 # OUTPUT
 # ════════════════════════════════════════════
@@ -39,10 +41,7 @@ LOOKBACK          = 30           # days
 # ════════════════════════════════════════════
 # BRAND COLORS
 # ════════════════════════════════════════════
-NAVY      = '#0A1628'
-NAVY_MID  = '#102240'
-NAVY_LIT  = '#1A3A6E'
-GOLD      = '#D4A843'
+GOLD     = '#D4A843'
 GOLD_LIT  = '#ECC96A'
 GOLD_DIM  = '#8A6B25'
 WHITE     = '#F8FAFB'
@@ -53,8 +52,7 @@ RED       = '#8A1A1A'
 GREEN_LIT = '#2ABF7A'
 RED_LIT   = '#D64444'
 
-CHART_WIDTH  = 1100
-CHART_HEIGHT = 750
+SOURCE = 'Yahoo Finance · DeFiLlama'
 
 
 # ════════════════════════════════════════════
@@ -63,40 +61,6 @@ CHART_HEIGHT = 750
 def hex_to_rgba(h, a=0.35):
     h = h.lstrip('#')
     return f'rgba({int(h[0:2],16)},{int(h[2:4],16)},{int(h[4:6],16)},{a})'
-
-
-def alphaline_layout(fig, title, height=CHART_HEIGHT, subtitle='',
-                     source='alphalineresearch.com  |  Yahoo Finance  |  DeFiLlama'):
-    fig.update_layout(
-        template='plotly_dark',
-        paper_bgcolor=NAVY, plot_bgcolor=NAVY_MID,
-        height=height, autosize=True,
-        showlegend=False,
-        title=dict(
-            text=(
-                f'<span style="font-family:Georgia,serif; font-size:15px; color:{WHITE};">{title}</span>'
-                f'<br><span style="font-family:Courier New,monospace; font-size:8px; color:{GOLD};">ALPHALINE RESEARCH</span>'
-                + (f'<br><span style="font-family:Courier New,monospace; font-size:9px; color:{MIST};">{subtitle}</span>' if subtitle else '')
-            ),
-            x=0.02, xanchor='left', y=0.985, yanchor='top'
-        ),
-        font=dict(family='Courier New, monospace', color=MIST, size=10),
-        margin=dict(l=40, r=60, t=80, b=130),
-        xaxis=dict(gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5, zeroline=False,
-                   showspikes=True, spikecolor=MIST, spikethickness=1, spikedash='dot'),
-        xaxis2=dict(gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5, zeroline=False),
-        yaxis=dict(gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5, zeroline=False),
-        yaxis2=dict(gridcolor='rgba(212,168,67,0.03)', gridwidth=0.4, zeroline=False),
-        hoverlabel=dict(bgcolor=NAVY_MID, bordercolor=GOLD,
-                        font=dict(family='Courier New, monospace', size=11, color=WHITE)),
-        annotations=[
-            dict(text=f'Source: {source}', xref='paper', yref='paper',
-                 x=0.99, y=-0.07, xanchor='right', yanchor='top',
-                 font=dict(family='Courier New, monospace', size=8, color=STEEL), showarrow=False),
-
-        ],
-    )
-    return fig
 
 
 def _get(url, timeout=90, retries=3):
@@ -284,51 +248,20 @@ def plot_tvl_momentum(df, lookback=30):
     fig.add_hline(y=0, line_color=WHITE, line_width=0.6,
                   opacity=0.25, row=3, col=1)
 
-    latest_tvl = d['total_secured_usd'].iloc[-1]
-    alphaline_layout(
-        fig,
-        'ETH Price + TVL Momentum',
-        subtitle=f'Past 30 Days  ·  Total TVL: ${latest_tvl/1e9:.1f}B',
-        height=700
-    )
-
-    # Annotations added AFTER alphaline_layout so they are not overwritten
+    # Latest readings go in the page subtitle (end-of-line labels clipped)
+    latest_tvl  = d['total_secured_usd'].iloc[-1]
     latest_eth  = d['eth_price'].iloc[-1]
     eth_30d_ret = (d['eth_price'].iloc[-1] / d['eth_price'].iloc[0] - 1) * 100
-    ret_color   = GREEN_LIT if eth_30d_ret >= 0 else RED_LIT
-    fig.add_annotation(
-        x=d.index[-1], y=latest_eth,
-        text=f'  ${latest_eth:,.0f}  ({eth_30d_ret:+.1f}% 30d)',
-        showarrow=False, xanchor='left',
-        font=dict(family='Courier New, monospace', size=10, color=ret_color),
-        row=1, col=1
-    )
-    fig.add_annotation(
-        x=d.index[-1], y=cum_final,
-        text=f'  TVL  {cum_final:+.1f}% (30d)',
-        showarrow=False, xanchor='left',
-        font=dict(family='Courier New, monospace', size=10, color=cum_color),
-        row=3, col=1
-    )
+    subtitle = (f'<b>ETH ${latest_eth:,.0f}</b>  ·  ${latest_tvl/1e9:.1f}B secured  ·  past 30 days: '
+                f'ETH {pct(eth_30d_ret)}, secured value {pct(cum_final)}  ·  {date_long(d.index[-1])}')
 
-    fig.update_layout(
-        showlegend=True,
-        legend=dict(
-            bgcolor='rgba(10,22,40,0.0)', bordercolor='rgba(0,0,0,0)', borderwidth=0,
-            font=dict(size=9, color=MIST),
-            orientation='h', x=0.5, xanchor='center',
-            y=-0.12, yanchor='top', tracegroupgap=0,
-        ),
-    )
-    fig.update_yaxes(title_text='ETH Price ($)',
-                     title_font=dict(size=9, color=MIST), row=1, col=1)
-    fig.update_yaxes(title_text='Daily TVL \u0394%',
-                     title_font=dict(size=9, color=MIST), row=2, col=1)
-    fig.update_yaxes(title_text='Cumul. TVL Return %',
-                     title_font=dict(size=9, color=MIST), row=3, col=1)
-    # Pad x-axis 3 days right so end-of-data annotations aren't clipped
-    fig.update_xaxes(range=[d.index[0], d.index[-1] + pd.Timedelta(days=5)])
-    return fig
+    apply_theme(fig)
+    fig.update_yaxes(title_text='ETH Price ($)', tickformat='$,.0f', row=1, col=1)
+    fig.update_yaxes(title_text='Daily TVL\u0394%',
+                     ticksuffix='%', row=2, col=1)
+    fig.update_yaxes(title_text='Cumulative', ticksuffix='%', row=3, col=1)
+    fig.update_xaxes(range=[d.index[0] - pd.Timedelta(days=0.6), d.index[-1] + pd.Timedelta(days=0.6)])
+    return fig, subtitle
 
 
 # ════════════════════════════════════════════
@@ -338,6 +271,10 @@ if __name__ == '__main__':
     os.makedirs('docs', exist_ok=True)
     print('=== Building ETH Price + TVL Momentum ===')
     df  = build_dataframe()
-    fig = plot_tvl_momentum(df, lookback=LOOKBACK)
-    fig.write_html(OUTPUT_PATH, include_plotlyjs='cdn', config={'responsive': True})
+    fig, subtitle = plot_tvl_momentum(df, lookback=LOOKBACK)
+    write_chart(fig, OUTPUT_PATH,
+                title='ETH Price & Secured Value Momentum',
+                subtitle=subtitle,
+                note='Past 30 days: daily % change in total value secured on Ethereum, and its cumulative return',
+                source=SOURCE, ranges=False)
     print(f'Saved: {OUTPUT_PATH}')
