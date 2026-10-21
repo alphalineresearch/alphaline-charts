@@ -18,6 +18,8 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import yfinance as yf
 
+from alphaline_theme import apply_theme, write_chart, pct, date_long
+
 # ════════════════════════════════════════════
 # CONFIG
 # ════════════════════════════════════════════
@@ -45,8 +47,6 @@ OUTPUT_PATH = os.path.join('docs', 'btc_rv7_rv30_proxy_signal.html')
 # ════════════════════════════════════════════
 # ALPHALINE BRAND COLORS
 # ════════════════════════════════════════════
-NAVY      = '#0A1628'
-NAVY_MID  = '#102240'
 GOLD      = '#D4A843'
 GOLD_LIT  = '#ECC96A'
 WHITE     = '#F8FAFB'
@@ -54,47 +54,10 @@ MIST      = '#7A8F9F'
 STEEL     = '#374D61'
 GREEN_LIT = '#2ABF7A'
 
-CHART_WIDTH  = 1100
-CHART_HEIGHT = 860
-
 
 def hex_to_rgba(h, a=0.35):
     h = h.lstrip('#')
     return f'rgba({int(h[0:2],16)},{int(h[2:4],16)},{int(h[4:6],16)},{a})'
-
-
-# ════════════════════════════════════════════
-# ALPHALINE CHART TEMPLATE
-# ════════════════════════════════════════════
-def alphaline_layout(fig, title, height=CHART_HEIGHT, subtitle='',
-                     source='alphalineresearch.com  |  Yahoo Finance · blockchain.info'):
-    fig.update_layout(
-        template='plotly_dark',
-        paper_bgcolor=NAVY, plot_bgcolor=NAVY_MID,
-        height=height, autosize=True,
-        title=dict(
-            text=(
-                f'<span style="font-family:Georgia,serif; font-size:15px; color:{WHITE};">{title}</span>'
-                f'<br><span style="font-family:Courier New,monospace; font-size:8px; color:{GOLD};">ALPHALINE RESEARCH</span>'
-                + (f'<br><span style="font-family:Courier New,monospace; font-size:9px; color:{MIST};">{subtitle}</span>' if subtitle else '')
-            ),
-            x=0.02, xanchor='left', y=0.985, yanchor='top'
-        ),
-        font=dict(family='Courier New, monospace', color=MIST, size=10),
-        margin=dict(l=40, r=20, t=80, b=95),
-        xaxis=dict(gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5, zeroline=False,
-                   showspikes=True, spikecolor=MIST, spikethickness=1, spikedash='dot'),
-        yaxis=dict(gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5, zeroline=False),
-        hoverlabel=dict(bgcolor=NAVY_MID, bordercolor=GOLD,
-                        font=dict(family='Courier New, monospace', size=11, color=WHITE)),
-        annotations=[
-            dict(text=f'Source: {source}', xref='paper', yref='paper',
-                 x=0.99, y=-0.035, xanchor='right', yanchor='top',
-                 font=dict(family='Courier New, monospace', size=8, color=STEEL), showarrow=False),
-
-        ],
-    )
-    return fig
 
 
 # ════════════════════════════════════════════
@@ -318,10 +281,11 @@ def plot_rv_proxy(df, has_cost):
             y0=thresh, y1=thresh,
             line=dict(color=color, width=0.8, dash='dot'),
             row=2, col=1)
+        # label inside the right edge so it never clips
         fig.add_annotation(
-            x=ratio.index[-1], y=thresh,
-            text=f'  {label}', showarrow=False, xanchor='left',
-            font=dict(family='Courier New, monospace', size=8, color=color),
+            xref='x domain', x=0.995, y=thresh, yshift=8,
+            text=label, showarrow=False, xanchor='right',
+            font=dict(color=MIST if color == STEEL else color),
             row=2, col=1)
 
     if len(prx_conf_days) > 0:
@@ -334,25 +298,23 @@ def plot_rv_proxy(df, has_cost):
             hovertemplate='%{x|%Y-%m-%d}<br>RV ratio: %{y:.2f}×<extra></extra>'
         ), row=2, col=1)
 
-    alphaline_layout(fig,
-        'BTC RV7/RV30 Proxy Signal',
-        subtitle='● Confluence = Vol Surprise + Drawdown + Near Production Cost',
-        height=CHART_HEIGHT)
+    # ── Live reading for the page subtitle ──
+    last = d.iloc[-1]
+    on_now = bool(sig_proxy_confluence.iloc[-1])
+    parts = [f'<b>RV7/RV30 {last["rv_ratio"]:.2f}×</b> (fires above {RV_RATIO_THRESH}×)',
+             f'{pct(last["dd_90d"])} from 90-day high']
+    if has_cost:
+        parts.append(f'{last["cost_multiple"]:.2f}× production cost')
+    parts.append('confluence on' if on_now else
+                 (f'last confluence {date_long(prx_conf_days.index[-1])}' if len(prx_conf_days) else 'no confluence yet'))
+    parts.append(date_long(d.index[-1]))
+    subtitle = '  ·  '.join(parts)
 
-    fig.update_layout(
-        showlegend=True,
-        legend=dict(
-            bgcolor='rgba(10,22,40,0.0)', bordercolor='rgba(0,0,0,0)', borderwidth=0,
-            font=dict(size=9, color=MIST),
-            orientation='h', x=0.5, xanchor='center',
-            y=-0.07, yanchor='top',
-            tracegroupgap=0,
-        ),
-    )
-    fig.update_yaxes(type='log', tickprefix='$', title_text='BTC Price (log)', row=1, col=1)
-    fig.update_yaxes(title_text='RV7/RV30 ratio', row=2, col=1)
+    apply_theme(fig)
+    fig.update_yaxes(type='log', tickformat='$,.0f', title_text='BTC Price (log)', row=1, col=1)
+    fig.update_yaxes(title_text='RV7/RV30 ratio', ticksuffix='×', row=2, col=1)
     fig.update_xaxes(title_text='', row=2, col=1)
-    return fig
+    return fig, subtitle
 
 
 # ════════════════════════════════════════════
@@ -363,7 +325,11 @@ if __name__ == '__main__':
 
     print('=== Building BTC RV7/RV30 Proxy Signal chart ===')
     df, has_cost = build_dataframe()
-    fig = plot_rv_proxy(df, has_cost)
-
-    fig.write_html(OUTPUT_PATH, include_plotlyjs='cdn', config={'responsive': True})
+    fig, subtitle = plot_rv_proxy(df, has_cost)
+    write_chart(fig, OUTPUT_PATH,
+                title='BTC Volatility Shock Signal',
+                subtitle=subtitle,
+                note=(f'Confluence (green) = 7-day realised vol above {RV_RATIO_THRESH}× the 30-day, '
+                      f'price {DD_THRESH_PROXY:.0f}%+ below its 90-day high, and within {COST_THRESH_PROXY}× production cost'),
+                source='Yahoo Finance · blockchain.info', default='5Y', min_plot_height=420)
     print(f'Saved: {OUTPUT_PATH}')
