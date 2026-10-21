@@ -1,13 +1,14 @@
 """
 generate_trend_charts.py
-Alphaline Research — BTC & ETH Trend: moving averages, Mayer Multiple, trend score
+Alphaline Research — BTC & ETH Trend: moving averages, volatility-adjusted Mayer, trend score
 
 Panels:
   1. Price (log), coloured by trend state (green 3–4/4, grey 2/4, red 0–1/4), with the
-     200-day and 200-week moving averages. Red shading where the
-     Mayer Multiple (price ÷ 200-day MA) is ≥ 2.4× (stretched); BTC only, green where price
-     is below the 200-week MA (ETH's 200-week history is too short to back that zone).
-  2. Mayer Multiple with the 0.8 / 1.0 / 1.5 / 2.4 zone lines.
+     200-day and 200-week moving averages. Red shading where the Mayer z is ≥ +1.5σ
+     (stretched), green where it is ≤ −1.5σ (washed out).
+  2. Mayer z: log(price ÷ 200-day MA) divided by its own standard deviation over the past
+     4 years. The plain Mayer Multiple shrinks every cycle as volatility falls (peaks 8.2×
+     in 2013, 1.85× in 2024), so fixed levels stop firing; the z keeps the same scale.
 
 Trend score: how many of the 1, 3, 6 and 12-month returns are positive (0–4); shown by
 the price line's colour and in its hover.
@@ -39,7 +40,7 @@ import requests
 import yfinance as yf
 from plotly.subplots import make_subplots
 
-from alphaline_theme import (apply_theme, write_chart, hover, date_long, pct, NAVY_MID, STEEL,
+from alphaline_theme import (apply_theme, write_chart, hover, date_long, pct, sigma, NAVY_MID, STEEL,
                              GOLD, WHITE, TEXT_2, TEXT_3, GREEN, RED, ETH_BLUE)
 
 warnings.filterwarnings('ignore')
@@ -58,8 +59,10 @@ ETH_EARLY  = os.path.join('data', 'eth_early_daily.csv')      # Kraken, Aug 2015
 MA_DAYS      = 200
 MA_WEEK_DAYS = 1400          # 200 weeks
 VOTE_MONTHS  = (1, 3, 6, 12)
-MAYER_ZONES  = (0.8, 1.0, 1.5, 2.4)
-MAYER_HOT    = 2.4           # ≥ this: stretched
+Z_WINDOW     = 4 * 365       # days of history the Mayer z is scaled against
+Z_MIN_DAYS   = 2 * 365       # history needed before it is drawn
+Z_HOT        = 1.5           # ≥ +1.5σ: stretched
+Z_COLD       = -1.5          # ≤ −1.5σ: washed out
 
 MA200_COLOR  = WHITE
 MA200W_COLOR = GOLD          # green is the uptrend colour of the price line
@@ -130,6 +133,8 @@ def build(px):
     d['ma200'] = px.rolling(MA_DAYS, min_periods=MA_DAYS).mean()
     d['ma200w'] = px.rolling(MA_WEEK_DAYS, min_periods=MA_WEEK_DAYS).mean()
     d['mayer'] = px / d['ma200']
+    dist = np.log(d['mayer'])
+    d['mayer_z'] = dist / dist.rolling(Z_WINDOW, min_periods=Z_MIN_DAYS).std()
     for m in VOTE_MONTHS:
         d[f'r{m}'] = px / px.shift(int(round(m * 365.25 / 12))) - 1
     votes = pd.concat([(d[f'r{m}'] > 0).where(d[f'r{m}'].notna()) for m in VOTE_MONTHS], axis=1)
@@ -149,17 +154,14 @@ def spans(mask):
 # ════════════════════════════════════════════
 # CHART
 # ════════════════════════════════════════════
-def plot_trend(d, ticker, price_color, floor_zone):
+def plot_trend(d, ticker, price_color):
     fig = make_subplots(rows=2, cols=1, shared_xaxes=True,
                         row_heights=[0.72, 0.28], vertical_spacing=0.03)
 
     # ── Panel 1: shading, price, MAs ──
-    for x0, x1 in spans(d['mayer'] >= MAYER_HOT):
-        fig.add_vrect(x0=x0, x1=x1, fillcolor=hex_to_rgba(RED, 0.14), line_width=0,
-                      layer='below', row=1, col=1)
-    if floor_zone:
-        for x0, x1 in spans(d['close'] < d['ma200w']):
-            fig.add_vrect(x0=x0, x1=x1, fillcolor=hex_to_rgba(GREEN, 0.14), line_width=0,
+    for mask, color in ((d['mayer_z'] >= Z_HOT, RED), (d['mayer_z'] <= Z_COLD, GREEN)):
+        for x0, x1 in spans(mask):
+            fig.add_vrect(x0=x0, x1=x1, fillcolor=hex_to_rgba(color, 0.14), line_width=0,
                           layer='below', row=1, col=1)
 
     fig.add_trace(go.Scatter(
@@ -190,29 +192,27 @@ def plot_trend(d, ticker, price_color, floor_zone):
             name=f'{ticker} Price', showlegend=False, line=dict(color=price_color, width=1.6),
             hovertemplate=hover(ticker, '$%{y:,.0f}')), row=1, col=1)
     # legend keys for the shading
-    keys = [(f'Mayer ≥ {MAYER_HOT}× (stretched)', RED)]
-    if floor_zone:
-        keys.append(('Below 200-week MA', GREEN))
-    for name, color in keys:
+    for name, color in ((f'Mayer z ≥ +{Z_HOT}σ (stretched)', RED),
+                        (f'Mayer z ≤ −{-Z_COLD}σ (washed out)', GREEN)):
         fig.add_trace(go.Scatter(
             x=[d.index[-1]], y=[None], mode='lines', name=name, fill='toself',
             fillcolor=hex_to_rgba(color, 0.35), line=dict(width=0), hoverinfo='skip'), row=1, col=1)
 
-    # ── Panel 2: Mayer Multiple ──
-    for z in MAYER_ZONES:
-        fig.add_hline(y=z, line_dash='dot', line_width=0.8,
-                      line_color=hex_to_rgba(RED if z == MAYER_HOT else TEXT_3, 0.7 if z == MAYER_HOT else 0.45),
+    # ── Panel 2: Mayer z ──
+    for y, color, a in ((Z_HOT, RED, 0.7), (0.5, TEXT_3, 0.3), (0, TEXT_3, 0.5),
+                        (-0.5, TEXT_3, 0.3), (Z_COLD, GREEN, 0.7)):
+        fig.add_hline(y=y, line_dash='dot', line_width=0.8, line_color=hex_to_rgba(color, a),
                       row=2, col=1)
     fig.add_trace(go.Scatter(
-        x=d.index, y=d['mayer'], mode='lines', name='Mayer Multiple',
+        x=d.index, y=d['mayer_z'], mode='lines', name='Mayer z', customdata=d['mayer'],
         line=dict(color=GOLD, width=1.2),
-        hovertemplate=hover('Mayer', '%{y:.2f}×')), row=2, col=1)
+        hovertemplate=hover('Mayer', '%{customdata:.2f}× · %{y:+.2f}σ')), row=2, col=1)
 
     fig.add_annotation(**checks_box(d))
     apply_theme(fig)
     fig.update_yaxes(type='log', tickformat='$,.0f', title_text='Price (log)', row=1, col=1)
-    fig.update_yaxes(title_text='Mayer ×', tickmode='array',
-                     tickvals=[0.5, *MAYER_ZONES, 4, 6], ticktext=['0.5', *map(str, MAYER_ZONES), '4', '6'],
+    fig.update_yaxes(title_text='Mayer z', tickmode='array',
+                     tickvals=[-3, Z_COLD, 0, Z_HOT, 3], ticktext=['−3σ', '−1.5σ', '0', '+1.5σ', '+3σ'],
                      row=2, col=1)
     fig.update_xaxes(rangeslider_visible=False)
     return fig
@@ -241,7 +241,7 @@ def subtitle(d, ticker):
     last = d.iloc[-1]
     score = int(last['score'])
     parts = [f'<b>{ticker} ${last["close"]:,.0f}</b>',
-             f'Mayer {last["mayer"]:.2f}×',
+             f'Mayer {last["mayer"]:.2f}× ({sigma(last["mayer_z"], 1)})',
              f'Trend {score}/4 · {SCORE_WORDS[score]}']
     if pd.notna(last['ma200w']):
         parts.insert(2, f'{last["close"] / last["ma200w"]:.2f}× the 200-week MA')
@@ -250,9 +250,8 @@ def subtitle(d, ticker):
 
 
 NOTE = ('Line colour = trend: how many of the 1, 3, 6 and 12-month returns are positive '
-        '(green 3–4, grey 2, red 0–1). '
-        f'Mayer Multiple = price ÷ 200-day MA; red shading ≥ {MAYER_HOT}×')
-NOTE_FLOOR = NOTE + ', green = below the 200-week MA'
+        '(green 3–4, grey 2, red 0–1). Mayer z = distance from the 200-day MA in units of its usual '
+        f'range over the past 4 years; shading red ≥ +{Z_HOT}σ (stretched), green ≤ −{-Z_COLD}σ (washed out)')
 
 # ════════════════════════════════════════════
 # MAIN
@@ -261,15 +260,14 @@ if __name__ == '__main__':
     os.makedirs('docs', exist_ok=True)
     print('=== Building BTC & ETH Trend Charts ===')
 
-    for ticker, fetch, color, out, src, floor_zone in (
-            ('BTC', fetch_btc, GOLD, OUTPUT_BTC, 'blockchain.info · Yahoo Finance', True),
-            ('ETH', fetch_eth, ETH_BLUE, OUTPUT_ETH, 'Coinbase · Yahoo Finance', False)):
+    for ticker, fetch, color, out, src in (
+            ('BTC', fetch_btc, GOLD, OUTPUT_BTC, 'blockchain.info · Yahoo Finance'),
+            ('ETH', fetch_eth, ETH_BLUE, OUTPUT_ETH, 'Kraken · Coinbase · Yahoo Finance')):
         d = build(fetch())
         print(f'  {ticker}: {d.index[0].date()} → {d.index[-1].date()} | ${d["close"].iloc[-1]:,.0f} '
-              f'| Mayer {d["mayer"].iloc[-1]:.2f} | trend {d["score"].iloc[-1]:.0f}/4')
-        fig = plot_trend(d, ticker, color, floor_zone)
-        write_chart(fig, out, title=f'{ticker} Trend', subtitle=subtitle(d, ticker),
-                    note=NOTE_FLOOR if floor_zone else NOTE,
+              f'| Mayer {d["mayer"].iloc[-1]:.2f} ({d["mayer_z"].iloc[-1]:+.2f}σ) | trend {d["score"].iloc[-1]:.0f}/4')
+        fig = plot_trend(d, ticker, color)
+        write_chart(fig, out, title=f'{ticker} Trend', subtitle=subtitle(d, ticker), note=NOTE,
                     source=src, default='5Y', min_plot_height=480)
         print(f'  Saved: {out}')
 
