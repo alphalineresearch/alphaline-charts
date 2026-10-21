@@ -29,6 +29,8 @@ from scipy.stats import linregress
 from datetime import datetime, timedelta
 import yfinance as yf
 
+from alphaline_theme import apply_theme, write_chart, pct, date_long
+
 warnings.filterwarnings('ignore')
 try:
     sys.stdout.reconfigure(encoding='utf-8')
@@ -84,15 +86,11 @@ OUTPUT_MSTR     = os.path.join('docs', 'btc_signal_mstr.html')
 # ════════════════════════════════════════════
 # BRAND COLORS
 # ════════════════════════════════════════════
-NAVY      = '#0A1628'
-NAVY_MID  = '#102240'
-NAVY_LIT  = '#1A3A6E'
 GOLD      = '#D4A843'
 GOLD_LIT  = '#ECC96A'
 GOLD_DIM  = '#8A6B25'
 WHITE     = '#F8FAFB'
 MIST      = '#7A8F9F'
-STEEL     = '#374D61'
 GREEN     = '#1A8A5A'
 RED       = '#8A1A1A'
 GREEN_LIT = '#2ABF7A'
@@ -100,7 +98,7 @@ RED_LIT   = '#D64444'
 PURPLE    = '#9B72CF'
 
 SCENARIO_COLORS = {'Bear': RED_LIT, 'Base': GOLD, 'Bull': GREEN_LIT}
-CHART_HEIGHT    = 750
+SOURCE          = 'blockchain.info · Mempool.space · CoinGecko · Yahoo Finance'
 
 RECENCY_BANDS = [
     (  0,  30,   GREEN_LIT, '0–30d (fresh)'),
@@ -114,52 +112,6 @@ RECENCY_BANDS = [
 def hex_to_rgba(h, a=0.35):
     h = h.lstrip('#')
     return f'rgba({int(h[0:2],16)},{int(h[2:4],16)},{int(h[4:6],16)},{a})'
-
-
-# ════════════════════════════════════════════
-# CHART TEMPLATE
-# ════════════════════════════════════════════
-def alphaline_layout(fig, title, height=CHART_HEIGHT, subtitle='',
-                     source='alphalineresearch.com  |  blockchain.info · Mempool.space · CoinGecko · Yahoo Finance'):
-    fig.update_layout(
-        template='plotly_dark',
-        paper_bgcolor=NAVY, plot_bgcolor=NAVY_MID,
-        height=height, autosize=True,
-        title=dict(
-            text=(
-                f'<span style="font-family:Georgia,serif; font-size:15px; color:{WHITE};">{title}</span>'
-                f'<br><span style="font-family:Courier New,monospace; font-size:8px; color:{GOLD};">ALPHALINE RESEARCH</span>'
-                + (f'<br><span style="font-family:Courier New,monospace; font-size:9px; color:{MIST};">{subtitle}</span>' if subtitle else '')
-            ),
-            x=0.02, xanchor='left', y=0.985, yanchor='top'
-        ),
-        font=dict(family='Courier New, monospace', color=MIST, size=10),
-        margin=dict(l=55, r=80, t=80, b=130),
-        xaxis=dict(gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5, zeroline=False,
-                   showspikes=True, spikecolor=MIST, spikethickness=1, spikedash='dot'),
-        yaxis=dict(gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5, zeroline=False),
-        hoverlabel=dict(bgcolor=NAVY_MID, bordercolor=GOLD,
-                        font=dict(family='Courier New, monospace', size=11, color=WHITE)),
-        legend=dict(
-            orientation='h', yanchor='top', y=-0.09,
-            xanchor='center', x=0.5,
-            bgcolor='rgba(10,22,40,0.8)', bordercolor=STEEL,
-            font=dict(size=9),
-        ),
-        annotations=[
-            dict(text=f'Source: {source}',
-                 xref='paper', yref='paper', x=1.0, y=-0.13,
-                 xanchor='right', yanchor='top',
-                 font=dict(family='Courier New, monospace', size=10, color=MIST),
-                 showarrow=False),
-            dict(text='<b>ALPHALINE RESEARCH</b>',
-                 xref='paper', yref='paper', x=0.0, y=-0.13,
-                 xanchor='left', yanchor='top',
-                 font=dict(family='Courier New, monospace', size=10, color=GOLD),
-                 showarrow=False),
-        ],
-    )
-    return fig
 
 
 # ════════════════════════════════════════════
@@ -553,9 +505,7 @@ def plot_btc_price_vs_production_cost(btc_px, hist_cost_30d, halving_records,
         annotation_font=dict(family='Courier New, monospace', size=8, color=PURPLE)
     )
 
-    alphaline_layout(fig,
-        f'BTC Price vs Miner Production Cost  |  History + Base Scenario → 2032',
-        height=CHART_HEIGHT)
+    apply_theme(fig)
     fig.update_layout(
         yaxis_type='log', yaxis_title='$/BTC (log)',
         xaxis_title='Date',
@@ -721,10 +671,7 @@ def plot_risk_score_history(sig, score_now):
     fig.update_xaxes(title_text='Date', title_font=dict(size=11),
                      range=[sig.index[0], _x_future], row=2, col=1)
 
-    alphaline_layout(fig,
-        'BTC Opportunity Signal  |  Shading = days since the signal fired (score ≥ 40)',
-        height=CHART_HEIGHT)
-    fig.update_layout(margin=dict(b=160), legend=dict(font=dict(size=8)))
+    apply_theme(fig)
     return fig
 
 
@@ -823,10 +770,7 @@ def plot_risk_score_recency(sig):
     fig.update_xaxes(showticklabels=False, row=1, col=1)
     fig.update_xaxes(title_text='Date', title_font=dict(size=11), row=2, col=1)
 
-    alphaline_layout(fig,
-        'BTC Opportunity Signal — Recency  |  Colour = days since the signal fired (score ≥ 40)  |  2016+',
-        height=CHART_HEIGHT)
-    fig.update_layout(margin=dict(b=160), legend=dict(font=dict(size=8)))
+    apply_theme(fig)
     return fig
 
 
@@ -898,9 +842,7 @@ def plot_mstr_signal_recency(sig, mstr_px):
     fig.update_xaxes(showticklabels=False, row=1, col=1)
     fig.update_xaxes(title_text='Date', title_font=dict(size=11), row=2, col=1)
 
-    alphaline_layout(fig,
-        'MSTR vs. BTC Opportunity Signal  |  Signal windows (score ≥ 40) mapped to MSTR',
-        height=CHART_HEIGHT)
+    apply_theme(fig)
     return fig
 
 
@@ -925,30 +867,55 @@ if __name__ == '__main__':
     sig           = build_signal_df(btc_px, historical_hr, hist_cost_30d, halving_records)
     score_now     = compute_current_score(btc_spot, current_cost, historical_hr, halving_records)
 
+    # Live readings for the chart subtitles
+    _last_px, _last_day = btc_px.iloc[-1], btc_px.index[-1]
+    _cost_now = hist_cost_30d.reindex(btc_px.index, method='ffill').iloc[-1]
+    _fired = sig.index[sig['score'] >= SIGNAL_THRESHOLD]
+    _signal = (f'signal {"on" if score_now >= SIGNAL_THRESHOLD else "off"} (fires at {SIGNAL_THRESHOLD}+)'
+               + (f' · last at {SIGNAL_THRESHOLD}+ on {date_long(_fired[-1])}' if len(_fired) else ''))
+    _sub_score = f'<b>Score {score_now:.0f}</b>/100 · {_signal}'
+
     # Chart 5
     print('\n--- Chart 5: BTC Price vs Production Cost ---')
     fig5 = plot_btc_price_vs_production_cost(
         btc_px, hist_cost_30d, halving_records, live_hr_eh, historical_hr, current_subsidy
     )
-    fig5.write_html(OUTPUT_COST, include_plotlyjs='cdn', config={'responsive': True})
+    write_chart(fig5, OUTPUT_COST,
+                title='BTC Price vs. Production Cost',
+                subtitle=(f'<b>BTC ${_last_px:,.0f}</b> · cost to mine ${_cost_now:,.0f} · '
+                          f'{pct((_last_px / _cost_now - 1) * 100, 0)} vs. cost · {date_long(_last_day)}'),
+                note='Miner production cost with a band to 1.5×, plus the base-scenario projection to 2032',
+                source=SOURCE, default='3Y', end=_last_day)
     print(f'Saved: {OUTPUT_COST}')
 
     # Chart 7
     print('\n--- Chart 7: Risk Score History ---')
     fig7 = plot_risk_score_history(sig, score_now)
-    fig7.write_html(OUTPUT_HISTORY, include_plotlyjs='cdn', config={'responsive': True})
+    write_chart(fig7, OUTPUT_HISTORY,
+                title='BTC Opportunity Signal',
+                subtitle=f'{_sub_score} · BTC ${_last_px:,.0f}',
+                note=f'Shading = days since the signal fired (score ≥ {SIGNAL_THRESHOLD})',
+                source=SOURCE, default='3Y', end=sig.index[-1], min_plot_height=420)
     print(f'Saved: {OUTPUT_HISTORY}')
 
     # Chart 7b
     print('\n--- Chart 7b: Risk Score Recency ---')
     fig7b = plot_risk_score_recency(sig)
-    fig7b.write_html(OUTPUT_RECENCY, include_plotlyjs='cdn', config={'responsive': True})
+    write_chart(fig7b, OUTPUT_RECENCY,
+                title='BTC Opportunity Signal: Recency',
+                subtitle=f'{_sub_score} · BTC ${_last_px:,.0f}',
+                note=f'Colour = days since the signal fired (score ≥ {SIGNAL_THRESHOLD}) · 2016+',
+                source=SOURCE, default='3Y', end=sig.index[-1], min_plot_height=420)
     print(f'Saved: {OUTPUT_RECENCY}')
 
     # Chart 7c
     print('\n--- Chart 7c: MSTR Signal Recency ---')
     fig7c = plot_mstr_signal_recency(sig, mstr_px)
-    fig7c.write_html(OUTPUT_MSTR, include_plotlyjs='cdn', config={'responsive': True})
+    write_chart(fig7c, OUTPUT_MSTR,
+                title='MSTR vs. BTC Opportunity Signal',
+                subtitle=f'<b>MSTR ${mstr_px.iloc[-1]:,.2f}</b> · BTC score {score_now:.0f}/100 · {_signal}',
+                note=f'BTC signal windows (score ≥ {SIGNAL_THRESHOLD}) mapped onto the MSTR share price',
+                source=SOURCE, default='3Y', end=mstr_px.index[-1], min_plot_height=420)
     print(f'Saved: {OUTPUT_MSTR}')
 
     print('\n=== All 4 charts complete ===')
