@@ -268,6 +268,19 @@ def fetch_hash_rate_history():
     raw['hashrate_eh'] = raw['hashrate_eh'] / 1e6
     raw.index = pd.to_datetime(raw.index).tz_localize(None)
     historical_hr = raw[raw['hashrate_eh'] > 0].dropna()
+    # blockchain.info runs about a week behind: top up the newer days from
+    # mempool.space's daily average, through yesterday (today is partial)
+    try:
+        rows = fetch_json('https://mempool.space/api/v1/mining/hashrate/3m', timeout=30)['hashrates']
+        recent = pd.Series({pd.Timestamp(int(r['timestamp']), unit='s').normalize(): r['avgHashrate'] / 1e18
+                            for r in rows}).sort_index()
+        today = pd.Timestamp.utcnow().tz_localize(None).normalize()
+        recent = recent[(recent.index > historical_hr.index[-1]) & (recent.index < today) & (recent > 0)]
+        if len(recent):
+            historical_hr = pd.concat([historical_hr, recent.rename('hashrate_eh').to_frame()])
+            print(f'  + {len(recent)} newer days from mempool.space')
+    except Exception as e:
+        print(f'  mempool.space top-up failed ({e}); using blockchain.info only')
     print(f'  {len(historical_hr)} rows | {historical_hr.index[0].date()} → {historical_hr.index[-1].date()}')
     return historical_hr
 
