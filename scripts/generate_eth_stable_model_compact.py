@@ -20,6 +20,8 @@ from plotly.subplots import make_subplots
 from sklearn.linear_model import LinearRegression
 import yfinance as yf
 
+from alphaline_theme import apply_theme, write_chart, sigma, date_long
+
 # ════════════════════════════════════════════
 # CONFIG
 # ════════════════════════════════════════════
@@ -35,17 +37,9 @@ OUTPUT_PATH = os.path.join('docs', 'eth_stable_model_compact.html')
 # ════════════════════════════════════════════
 # ALPHALINE BRAND COLORS
 # ════════════════════════════════════════════
-NAVY      = '#0A1628'
-NAVY_MID  = '#102240'
 GOLD      = '#D4A843'
-WHITE     = '#F8FAFB'
-MIST      = '#7A8F9F'
-STEEL     = '#374D61'
 RED_LIT   = '#D64444'
 GREEN_LIT = '#2ABF7A'
-
-CHART_WIDTH  = 1100
-CHART_HEIGHT = 750
 
 
 # ════════════════════════════════════════════
@@ -283,21 +277,14 @@ def plot_model_compact(df, r2):
         showlegend=True,
         hovertemplate='%{x|%Y-%m-%d}<br>30d MA: %{y:.2f}x<extra></extra>'
     ), row=2, col=1)
-    fig.add_annotation(
-        x=model_df.index[-1], y=ratio.iloc[-1],
-        text=f'  {ratio.iloc[-1]:.2f}x',
-        showarrow=False, xanchor='left',
-        font=dict(family='Courier New, monospace', size=9, color=GOLD), row=2, col=1
-    )
-
     # ── Panel 3: Z-score bars ──
     zscore  = model_df['zscore']
     zcolors = [
-        RED_LIT                  if v >  2 else
-        'rgba(214,68,68,0.55)'   if v >  1 else
-        'rgba(214,68,68,0.30)'   if v >  0 else
-        'rgba(42,191,122,0.30)'  if v > -1 else
-        'rgba(42,191,122,0.55)'  if v > -2 else
+        RED_LIT                   if v >  2 else
+        'rgba(232,106,106,0.85)'  if v >  1 else
+        'rgba(232,106,106,0.55)'  if v >  0 else
+        'rgba(42,191,122,0.55)'   if v > -1 else
+        'rgba(42,191,122,0.85)'   if v > -2 else
         GREEN_LIT
         for v in zscore
     ]
@@ -315,78 +302,25 @@ def plot_model_compact(df, r2):
     for level, color in [(2, RED_LIT), (1, 'rgba(214,68,68,0.6)'),
                          (-1, 'rgba(42,191,122,0.6)'), (-2, GREEN_LIT)]:
         fig.add_annotation(
-            x=model_df.index[-1], y=level, text=f'  {level:+d}σ',
-            showarrow=False, xanchor='left',
-            font=dict(family='Courier New, monospace', size=8, color=color), row=3, col=1
+            xref='x domain', x=0.998, y=level, text=f'{level:+d}σ',
+            showarrow=False, xanchor='right',
+            font=dict(color=color), row=3, col=1
         )
 
-    latest  = model_df.iloc[-1]
-    stats    = (
-        f'Price: ${latest["eth_price"]:,.0f}  ·  '
-        f'Model: ${latest["eth_model"]:,.0f}  ·  '
-        f'R²: {r2:.2f}'
+    latest   = model_df.iloc[-1]
+    subtitle = (
+        f'<b>ETH ${latest["eth_price"]:,.0f}</b>  ·  model ${latest["eth_model"]:,.0f}  ·  '
+        f'z {sigma(latest["zscore"])}  ·  stablecoins / market cap {ratio.iloc[-1]:.2f}×  ·  '
+        f'R² {r2:.2f}  ·  {date_long(model_df.index[-1])}'
     )
 
-    # Top margin (t=60): tight so plot starts close under the two-line title.
-    # title y=0.985 + yanchor='top' means both lines render inside the margin without clipping.
-    #
-    # Bottom margin layout (b=95):
-    #   y=-0.04  source text  (left, just below plot)
-    #   y=-0.11  legend        (centred, via legend dict)
-    #   y=-0.20  ALPHALINE RESEARCH  (left, below legend, clear of both)
-
-    title_html = (
-        f'<span style="font-family:Georgia,serif; font-size:15px; color:{WHITE};">'
-        f'ETH vs Stablecoin Model</span>'
-        f'<br>'
-        f'<span style="font-family:\'Courier New\',monospace; font-size:8px; color:{GOLD};">'
-        f'ALPHALINE RESEARCH</span>'
-        f'<br>'
-        f'<span style="font-family:\'Courier New\',monospace; font-size:9px; color:{MIST};">'
-        f'{stats}</span>'
-    )
-
-    fig.update_layout(
-        template='plotly_dark', paper_bgcolor=NAVY, plot_bgcolor=NAVY_MID,
-        height=CHART_HEIGHT, autosize=True,
-        title=dict(
-            text=title_html,
-            x=0.02, xanchor='left', y=0.985, yanchor='top'
-        ),
-        font=dict(family='Courier New, monospace', color=MIST, size=10),
-        margin=dict(l=50, r=24, t=75, b=95),
-        hoverlabel=dict(bgcolor=NAVY_MID, bordercolor=GOLD,
-                        font=dict(family='Courier New, monospace', size=11, color=WHITE)),
-        showlegend=True,
-        legend=dict(
-            bgcolor='rgba(10,22,40,0.0)', bordercolor='rgba(0,0,0,0)', borderwidth=0,
-            font=dict(size=9, color=MIST),
-            orientation='h', x=0.5, xanchor='center',
-            y=-0.11, yanchor='top',
-            tracegroupgap=0,
-        ),
-        bargap=0,
-        annotations=[
-            # Source — just below plot
-            dict(text='alphalineresearch.com  ·  Yahoo Finance  ·  DeFiLlama',
-                 xref='paper', yref='paper', x=0.0, y=-0.04,
-                 xanchor='left', yanchor='top',
-                 font=dict(family='Courier New, monospace', size=8, color=STEEL), showarrow=False),
-        ],
-        xaxis=dict(gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5, zeroline=False,
-                   showspikes=True, spikecolor=MIST, spikethickness=1, spikedash='dot'),
-        xaxis2=dict(gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5, zeroline=False),
-        xaxis3=dict(gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5, zeroline=False),
-        yaxis=dict(gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5, zeroline=False),
-    )
-    fig.update_yaxes(row=1, col=1, type='log', tickformat='$,.0f',
-                     gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5)
-    fig.update_yaxes(row=2, col=1,
-                     gridcolor='rgba(212,168,67,0.03)', gridwidth=0.4)
-    fig.update_yaxes(row=3, col=1,
-                     gridcolor='rgba(212,168,67,0.03)', gridwidth=0.4)
+    apply_theme(fig)
+    fig.update_layout(bargap=0)
+    fig.update_yaxes(row=1, col=1, type='log', tickformat='$,.0f')
+    fig.update_yaxes(row=2, col=1, title_text='Stables/Mcap', ticksuffix='×')
+    fig.update_yaxes(row=3, col=1, title_text='Z-score (σ)')
     fig.update_xaxes(rangeslider_visible=False)
-    return fig
+    return fig, subtitle
 
 
 # ════════════════════════════════════════════
@@ -412,6 +346,10 @@ if __name__ == '__main__':
 
     print(f'Model R²: {r2:.3f} | Z-score: {df["zscore"].iloc[-1]:+.2f}σ')
 
-    fig = plot_model_compact(df, r2)
-    fig.write_html(OUTPUT_PATH, include_plotlyjs='cdn', config={'responsive': True})
+    fig, subtitle = plot_model_compact(df, r2)
+    write_chart(fig, OUTPUT_PATH,
+                title='ETH vs. Stablecoin Model',
+                subtitle=subtitle,
+                note='Fair value from stablecoins on Ethereum alone · bands at ±1σ and ±2σ',
+                source='Yahoo Finance · DeFiLlama', default='5Y', min_plot_height=420)
     print(f'Saved: {OUTPUT_PATH}')
