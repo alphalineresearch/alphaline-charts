@@ -476,7 +476,7 @@ def plot_btc_price_vs_production_cost(btc_px, hist_cost_30d, halving_records,
     fig.add_trace(go.Scatter(
         x=_b_x + _b_x[::-1],
         y=[cost_hi.iloc[-1], proj_cost_upper[0], proj_cost[0], cost_lo.iloc[-1]],
-        fill='toself', fillcolor=hex_to_rgba(GREEN_LIT, 0.10),
+        mode='lines', fill='toself', fillcolor=hex_to_rgba(GREEN_LIT, 0.10),
         line=dict(width=0), showlegend=False, hoverinfo='skip'
     ))
     fig.add_trace(go.Scatter(
