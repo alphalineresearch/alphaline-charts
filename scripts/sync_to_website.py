@@ -15,7 +15,6 @@ SRC  = REPO_ROOT / "docs"
 DEST = Path(r"C:\Users\cwhit\Documents\Alphaline Research\Website\New")
 
 CHARTS = [
-    "eth_stable_model_compact.html",
     "eth_combined_tvl.html",
     "eth_stacked_tvl.html",
     "eth_proxy_signal.html",

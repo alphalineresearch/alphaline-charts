@@ -11,6 +11,8 @@ import glob
 from datetime import date
 
 DOCS_DIR = os.path.join(os.path.dirname(__file__), "..", "docs")
+# Retired charts: their docs/ page is now a redirect kept for old links
+RETIRED = ("eth_stable_model_compact.html",)
 
 def title_from_filename(filename):
     name = os.path.basename(filename).replace(".html", "")
@@ -19,7 +21,7 @@ def title_from_filename(filename):
 charts = []
 for path in sorted(glob.glob(os.path.join(DOCS_DIR, "*.html"))):
     basename = os.path.basename(path)
-    if basename == "index.html":
+    if basename in ("index.html", *RETIRED):
         continue
     charts.append({
         "file": basename,

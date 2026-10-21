@@ -1,6 +1,6 @@
 {
   "updated": "2026-10-21",
-  "count": 24,
+  "count": 23,
   "charts": [
     {
       "file": "btc_copper_gold_bb_squeeze.html",
@@ -88,11 +88,6 @@
       "updated": "2026-10-21"
     },
     {
-      "file": "eth_stable_model_compact.html",
-      "title": "Eth Stable Model Compact",
-      "updated": "2026-10-21"
-    },
-    {
       "file": "eth_stacked_tvl.html",
       "title": "Eth Stacked Tvl",
       "updated": "2026-10-21"
@@ -125,7 +120,7 @@
   ],
   "signals": {
     "asOf": "2026-10-20",
-    "generated": "2026-10-21T14:31Z",
+    "generated": "2026-10-21T16:23Z",
     "items": [
       {
         "id": "btc-risk",
@@ -247,22 +242,22 @@
           "rows": [
             [
               "MSTR · BTC",
-              "1.11×",
+              "1.15×",
               null
             ],
             [
               "ASST · BTC",
-              "1.67×",
+              "1.78×",
               null
             ],
             [
               "BMNR · ETH",
-              "0.90×",
+              "0.91×",
               null
             ],
             [
               "SBET · ETH",
-              "0.77×",
+              "0.79×",
               null
             ]
           ]
