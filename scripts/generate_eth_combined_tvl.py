@@ -309,8 +309,8 @@ def plot_model_compact(df, r2_a):
 
     for level, color in [(2, RED_LIT), (1, 'rgba(214,68,68,0.6)'),
                          (-1, 'rgba(42,191,122,0.6)'), (-2, GREEN_LIT)]:
-        fig.add_annotation(x=model_df.index[-1], y=level,
-            text=f'  {level:+d}σ', showarrow=False, xanchor='left',
+        fig.add_annotation(xref='x domain', x=0.998, y=level,
+            text=f'{level:+d}σ', showarrow=False, xanchor='right',
             font=dict(family='Courier New, monospace', size=8, color=color), row=3, col=1)
 
     fig.add_annotation(
