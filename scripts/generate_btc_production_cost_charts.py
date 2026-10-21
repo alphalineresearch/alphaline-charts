@@ -567,9 +567,11 @@ def plot_risk_score_history(sig, score_now):
     if _prev is not None:
         _segments.append((_seg_start, sig.index[-1] + pd.Timedelta(days=1), _prev))
 
+    # Recency as a thin ribbon along the top of the score panel (the score
+    # never gets that high), so it doesn't tint the components underneath
     for _x0, _x1, (_col, _lbl) in _segments:
-        fig.add_vrect(x0=_x0, x1=_x1,
-                      fillcolor=hex_to_rgba(_col, 0.14), line_width=0,
+        fig.add_vrect(x0=_x0, x1=_x1, y0=0.94, y1=1.0,
+                      fillcolor=hex_to_rgba(_col, 0.80), line_width=0,
                       row=1, col=1)
 
     # Score threshold lines
@@ -601,7 +603,7 @@ def plot_risk_score_history(sig, score_now):
     score_smooth = sig['score'].rolling(14, center=True, min_periods=7).mean()
     fig.add_trace(go.Scatter(
         x=score_smooth.index, y=score_smooth, name='Composite Score (14d avg)',
-        mode='lines', line=dict(color=hex_to_rgba(WHITE, 0.50), width=1.2),
+        mode='lines', line=dict(color=WHITE, width=1.6),
         hovertemplate='%{x|%Y-%m-%d}<br>Score: %{y:.0f}/100<extra></extra>'
     ), row=1, col=1)
 
@@ -669,7 +671,7 @@ def plot_risk_score_history(sig, score_now):
 
     # Zone key, in the top of the score panel (the score has never reached 70)
     fig.add_annotation(
-        xref='x domain', x=0.005, yref='y', y=96, xanchor='left', yanchor='top',
+        xref='x domain', x=0.005, yref='y', y=90, xanchor='left', yanchor='top',
         text=(f'<span style="color:{RED_LIT}">RISK OFF</span> &lt;{ZONE_LOW} · '
               f'<span style="color:{GOLD}">NEUTRAL</span> {ZONE_LOW}–{SIGNAL_THRESHOLD} · '
               f'<span style="color:{GREEN_LIT}">FAVOURABLE</span> {SIGNAL_THRESHOLD}+'),
@@ -916,7 +918,7 @@ if __name__ == '__main__':
     write_chart(fig7, OUTPUT_HISTORY,
                 title='BTC Opportunity Signal',
                 subtitle=f'{_sub_score} · BTC ${_last_px:,.0f}',
-                note=f'Shading = days since the signal fired (score ≥ {SIGNAL_THRESHOLD})',
+                note=f'Top ribbon = days since the signal fired (score ≥ {SIGNAL_THRESHOLD})',
                 source=SOURCE, default='5Y', end=sig.index[-1], min_plot_height=420)
     print(f'Saved: {OUTPUT_HISTORY}')
 
