@@ -23,6 +23,8 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import yfinance as yf
 
+from alphaline_theme import apply_theme, write_chart, date_long
+
 warnings.filterwarnings('ignore')
 
 # ════════════════════════════════════════════
@@ -41,65 +43,24 @@ PCT_RARE_OB    = 88
 # ════════════════════════════════════════════
 # BRAND COLORS
 # ════════════════════════════════════════════
-NAVY      = '#0A1628'
-NAVY_MID  = '#102240'
 GOLD      = '#D4A843'
 GOLD_LIT  = '#ECC96A'
-WHITE     = '#F8FAFB'
 MIST      = '#7A8F9F'
 STEEL     = '#374D61'
+ETH_BLUE  = '#8FAEE6'
 AMBER      = '#C87820'
 CORNFLOWER = '#4A9EDB'
 GREEN_LIT  = '#2ABF7A'
 RED_LIT    = '#D64444'
 
-CHART_WIDTH  = 1100
-CHART_HEIGHT = 820
-
 def hex_to_rgba(h, a=0.35):
     h = h.lstrip('#')
     return f'rgba({int(h[0:2],16)},{int(h[2:4],16)},{int(h[4:6],16)},{a})'
 
-# ════════════════════════════════════════════
-# ALPHALINE LAYOUT
-# ════════════════════════════════════════════
-def alphaline_layout(fig, title, height=CHART_HEIGHT, subtitle='',
-                     source='alphalineresearch.com  |  Yahoo Finance'):
-    fig.update_layout(
-        template='plotly_dark',
-        paper_bgcolor=NAVY, plot_bgcolor=NAVY_MID,
-        height=height, autosize=True,
-        title=dict(
-            text=(
-                f'<span style="font-family:Georgia,serif; font-size:15px; color:{WHITE};">{title}</span>'
-                f'<br><span style="font-family:Courier New,monospace; font-size:8px; color:{GOLD};">ALPHALINE RESEARCH</span>'
-                + (f'<br><span style="font-family:Courier New,monospace; font-size:9px; color:{MIST};">{subtitle}</span>' if subtitle else '')
-            ),
-            x=0.02, xanchor='left', y=0.985, yanchor='top'
-        ),
-        font=dict(family='Courier New, monospace', color=MIST, size=10),
-        margin=dict(l=40, r=20, t=80, b=95),
-        xaxis=dict(gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5, zeroline=False,
-                   showspikes=True, spikecolor=MIST, spikethickness=1, spikedash='dot'),
-        yaxis=dict(gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5, zeroline=False),
-        hoverlabel=dict(bgcolor=NAVY_MID, bordercolor=GOLD,
-                        font=dict(family='Courier New, monospace', size=11, color=WHITE)),
-        legend=dict(
-            bgcolor='rgba(10,22,40,0.0)', bordercolor='rgba(0,0,0,0)', borderwidth=0,
-            font=dict(size=9, color=MIST),
-            orientation='h', x=0.5, xanchor='center',
-            y=-0.11, yanchor='top',
-            tracegroupgap=0,
-        ),
-        annotations=[
-            dict(text=f'Source: {source}',
-                 xref='paper', yref='paper', x=0.0, y=-0.04,
-                 xanchor='left', yanchor='top',
-                 font=dict(family='Courier New, monospace', size=8, color=STEEL),
-                 showarrow=False),
-        ],
-    )
-    return fig
+
+def _subtitle(ticker, d, label, rsi_now, pct_now, regime_label):
+    return (f'<b>{label} {rsi_now:.1f}</b>  ·  {pct_now:.0f}th percentile  ·  {regime_label.title()}'
+            f'  ·  {ticker} ${d["close"].iloc[-1]:,.0f}  ·  week of {date_long(d.index[-1])}')
 
 # ════════════════════════════════════════════
 # HELPERS
@@ -204,14 +165,6 @@ def plot_price_rsi(df: pd.DataFrame, ticker: str, price_color: str, rsi_range=No
         hovertemplate='%{x|%Y-%m-%d}<br>' + ticker + ': $%{y:,.0f}<extra></extra>'
     ), row=1, col=1)
 
-    fig.add_annotation(
-        x=d.index[-1], y=d['close'].iloc[-1],
-        text=f'  ${d["close"].iloc[-1]:,.0f}',
-        showarrow=False, xanchor='left',
-        font=dict(family='Courier New, monospace', size=10, color=price_color),
-        row=1, col=1
-    )
-
     # ── Colored triangles at rare RSI extremes ─────────────────────
     for mask, symbol, mult, label in [
         (d['rsi_pct'] <= PCT_RARE_OS, 'triangle-up',   0.95, f'Rare OS (pct ≤{PCT_RARE_OS})'),
@@ -241,9 +194,9 @@ def plot_price_rsi(df: pd.DataFrame, ticker: str, price_color: str, rsi_range=No
         if rsi_range[0] <= level <= rsi_range[1]:
             fig.add_hline(y=level, line_dash=dash, line_color=color, line_width=0.8, row=2, col=1)
             fig.add_annotation(
-                x=d.index[-1], y=level,
-                text=f'  {label}', showarrow=False, xanchor='left',
-                font=dict(family='Courier New, monospace', size=8, color=color),
+                xref='x domain', x=0.995, y=level, yshift=8,
+                text=label, showarrow=False, xanchor='right',
+                font=dict(color=color),
                 row=2, col=1
             )
 
@@ -277,29 +230,14 @@ def plot_price_rsi(df: pd.DataFrame, ticker: str, price_color: str, rsi_range=No
         'NEUTRAL'
     )
 
-    fig.add_annotation(
-        x=d.index[-1], y=rsi_now,
-        text=f'  {rsi_now:.1f}',
-        showarrow=False, xanchor='left',
-        font=dict(family='Courier New, monospace', size=10, color=color_now),
-        row=2, col=1
-    )
-
-    subtitle = f'RSI: {rsi_now:.1f}  ·  {pct_now:.0f}th pct  ·  {regime_label}'
-    alphaline_layout(fig, f'{ticker} — Weekly RSI(14)', subtitle=subtitle, height=CHART_HEIGHT)
-    fig.update_layout(
-        showlegend=True,
-        legend=dict(bgcolor='rgba(10,22,40,0.0)', bordercolor='rgba(0,0,0,0)', borderwidth=0,
-                    font=dict(size=9, color=MIST),
-                    orientation='h', x=0.5, xanchor='center',
-                    y=-0.07, yanchor='top', tracegroupgap=0),
-    )
-    fig.update_yaxes(type='log', tickprefix='$', title_text='Price (log)', row=1, col=1)
+    subtitle = _subtitle(ticker, d, 'RSI', rsi_now, pct_now, regime_label)
+    apply_theme(fig)
+    fig.update_yaxes(type='log', tickformat='$,.0f', title_text='Price (log)', row=1, col=1)
     fig.update_yaxes(title_text='RSI(14)', range=rsi_range,
                      tickvals=[20, 30, 50, 70, 80, 90, 100], row=2, col=1)
     fig.update_xaxes(rangeslider_visible=False)
 
-    return fig, regime_label
+    return fig, regime_label, subtitle
 
 # ════════════════════════════════════════════
 # CHART 3 & 4 — ANNUAL RSI(52) CYCLE
@@ -339,14 +277,6 @@ def plot_annual_rsi(df: pd.DataFrame, ticker: str, price_color: str, rsi_range=N
         hovertemplate='%{x|%Y-%m-%d}<br>' + ticker + ': $%{y:,.0f}<extra></extra>'
     ), row=1, col=1)
 
-    fig.add_annotation(
-        x=d.index[-1], y=d['close'].iloc[-1],
-        text=f'  ${d["close"].iloc[-1]:,.0f}',
-        showarrow=False, xanchor='left',
-        font=dict(family='Courier New, monospace', size=10, color=price_color),
-        row=1, col=1
-    )
-
     # ── Colored triangles driven by RSI(52) pct + slope ───────────
     for mask, symbol, mult, label in [
         (d['rsi_1yr_pct'] <= PCT_RARE_OS, 'triangle-up',   0.95, f'Rare OS RSI(52) (pct ≤{PCT_RARE_OS})'),
@@ -376,9 +306,9 @@ def plot_annual_rsi(df: pd.DataFrame, ticker: str, price_color: str, rsi_range=N
         if rsi_range[0] <= level <= rsi_range[1]:
             fig.add_hline(y=level, line_dash=dash, line_color=color, line_width=0.8, row=2, col=1)
             fig.add_annotation(
-                x=d.index[-1], y=level,
-                text=f'  {label}', showarrow=False, xanchor='left',
-                font=dict(family='Courier New, monospace', size=8, color=color),
+                xref='x domain', x=0.995, y=level, yshift=8,
+                text=label, showarrow=False, xanchor='right',
+                font=dict(color=color),
                 row=2, col=1
             )
 
@@ -412,29 +342,14 @@ def plot_annual_rsi(df: pd.DataFrame, ticker: str, price_color: str, rsi_range=N
         'NEUTRAL'
     )
 
-    fig.add_annotation(
-        x=d.index[-1], y=rsi_now,
-        text=f'  {rsi_now:.1f}',
-        showarrow=False, xanchor='left',
-        font=dict(family='Courier New, monospace', size=10, color=color_now),
-        row=2, col=1
-    )
-
-    subtitle = f'RSI(52): {rsi_now:.1f}  ·  {pct_now:.0f}th pct  ·  {regime_label}'
-    alphaline_layout(fig, f'{ticker} — Annual RSI(52) Cycle', subtitle=subtitle, height=CHART_HEIGHT)
-    fig.update_layout(
-        showlegend=True,
-        legend=dict(bgcolor='rgba(10,22,40,0.0)', bordercolor='rgba(0,0,0,0)', borderwidth=0,
-                    font=dict(size=9, color=MIST),
-                    orientation='h', x=0.5, xanchor='center',
-                    y=-0.07, yanchor='top', tracegroupgap=0),
-    )
-    fig.update_yaxes(type='log', tickprefix='$', title_text='Price (log)', row=1, col=1)
+    subtitle = _subtitle(ticker, d, 'RSI(52)', rsi_now, pct_now, regime_label)
+    apply_theme(fig)
+    fig.update_yaxes(type='log', tickformat='$,.0f', title_text='Price (log)', row=1, col=1)
     fig.update_yaxes(title_text='RSI(52)', range=rsi_range,
                      tickvals=[20, 30, 50, 70, 80, 90, 100], row=2, col=1)
     fig.update_xaxes(rangeslider_visible=False)
 
-    return fig, regime_label
+    return fig, regime_label, subtitle
 
 # ════════════════════════════════════════════
 # MAIN
@@ -451,24 +366,34 @@ if __name__ == '__main__':
     eth = build_dataframe('ETH-USD')
     print(f'  ETH: {len(eth)} weeks | {eth.index[0].date()} → {eth.index[-1].date()} | ${eth["close"].iloc[-1]:,.0f}')
 
+    weekly_note = (f'Dots coloured by RSI percentile and slope: rare oversold (≤{PCT_RARE_OS}th pct) '
+                   f'green rising / blue falling; rare overbought (≥{PCT_RARE_OB}th) red falling / amber rising')
+    annual_note = (f'52-week RSI · rare oversold ≤{PCT_RARE_OS}th percentile, rare overbought ≥{PCT_RARE_OB}th; '
+                   f'shading marks those stretches on price')
+
     print('\nGenerating BTC Weekly RSI(14)...')
-    fig, regime = plot_price_rsi(btc, 'BTC', GOLD, rsi_range=[20, 100])
-    fig.write_html(OUTPUT_BTC_WEEKLY, include_plotlyjs='cdn', config={'responsive': True})
+    fig, regime, sub = plot_price_rsi(btc, 'BTC', GOLD, rsi_range=[20, 100])
+    write_chart(fig, OUTPUT_BTC_WEEKLY, title='BTC Weekly RSI(14)', subtitle=sub,
+                note=weekly_note, source='Yahoo Finance', default='5Y', min_plot_height=420)
     print(f'  Saved: {OUTPUT_BTC_WEEKLY}  [{regime}]')
 
     print('Generating ETH Weekly RSI(14)...')
-    fig, regime = plot_price_rsi(eth, 'ETH', MIST, rsi_range=[20, 100])
-    fig.write_html(OUTPUT_ETH_WEEKLY, include_plotlyjs='cdn', config={'responsive': True})
+    fig, regime, sub = plot_price_rsi(eth, 'ETH', ETH_BLUE, rsi_range=[20, 100])
+    write_chart(fig, OUTPUT_ETH_WEEKLY, title='ETH Weekly RSI(14)', subtitle=sub,
+                note=weekly_note, source='Yahoo Finance', default='5Y', min_plot_height=420)
     print(f'  Saved: {OUTPUT_ETH_WEEKLY}  [{regime}]')
 
+    # long-cycle charts open on the full history
     print('Generating BTC Annual RSI(52)...')
-    fig, regime = plot_annual_rsi(btc, 'BTC', GOLD, rsi_range=[20, 100])
-    fig.write_html(OUTPUT_BTC_ANNUAL, include_plotlyjs='cdn', config={'responsive': True})
+    fig, regime, sub = plot_annual_rsi(btc, 'BTC', GOLD, rsi_range=[20, 100])
+    write_chart(fig, OUTPUT_BTC_ANNUAL, title='BTC Annual RSI(52) Cycle', subtitle=sub,
+                note=annual_note, source='Yahoo Finance', default='All', min_plot_height=420)
     print(f'  Saved: {OUTPUT_BTC_ANNUAL}  [{regime}]')
 
     print('Generating ETH Annual RSI(52)...')
-    fig, regime = plot_annual_rsi(eth, 'ETH', MIST, rsi_range=[40, 90])
-    fig.write_html(OUTPUT_ETH_ANNUAL, include_plotlyjs='cdn', config={'responsive': True})
+    fig, regime, sub = plot_annual_rsi(eth, 'ETH', ETH_BLUE, rsi_range=[40, 90])
+    write_chart(fig, OUTPUT_ETH_ANNUAL, title='ETH Annual RSI(52) Cycle', subtitle=sub,
+                note=annual_note, source='Yahoo Finance', default='All', min_plot_height=420)
     print(f'  Saved: {OUTPUT_ETH_ANNUAL}  [{regime}]')
 
     print('\nDone.')
