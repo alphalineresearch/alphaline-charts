@@ -1,10 +1,10 @@
 """
 generate_eth_stacked_tvl_mcap.py
-Alphaline Research — ETH Stacked TVL + Price (right axis) | TVL / Market Cap
+Alphaline Research — ETH Price | Secured Value / Market Cap
 
-Top panel   : Stablecoins / DeFi / RWA stacked area (left axis)
-              ETH Price (right axis, log scale)
-Bottom panel: Total Secured TVL / ETH Market Cap ratio with 30d MA
+Top panel   : ETH price (log)
+Bottom panel: value secured on Ethereum (stablecoins + DeFi + RWA) ÷ ETH market cap,
+              daily and 30-day average, with the running record
 
 Data sources (no API keys required):
   - DeFiLlama stablecoins : stablecoins.llama.fi/stablecoincharts/Ethereum
@@ -28,7 +28,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import yfinance as yf
 
-from alphaline_theme import apply_theme, write_chart, date_long
+from alphaline_theme import apply_theme, write_chart, date_long, ETH_BLUE, WHITE
 sys.stdout.reconfigure(encoding='utf-8')
 
 # ════════════════════════════════════════════
@@ -180,89 +180,58 @@ def build_dataframe():
 # CHART
 # ════════════════════════════════════════════
 def plot_stacked_tvl_mcap(df):
+    """ETH price on top; value secured on Ethereum ÷ ETH market cap below.
+    The ratio has trended up since 2019 (secured value has grown faster than ETH), and its
+    level has not predicted ETH returns (research/eth/ratio_test.py), so it is shown as
+    context: the 30-day line, the daily reading behind it, and the running record."""
     d = df.dropna(subset=['eth_price', 'stable_tvl_usd']).copy()
     d = d[d['total_secured_usd'] > 1e9]
-
-    fig = make_subplots(
-        rows=2, cols=1,
-        shared_xaxes=True,
-        specs=[[{'secondary_y': True}], [{'secondary_y': False}]],
-        row_heights=[0.60, 0.40],
-        vertical_spacing=0.04
-    )
-
-    # ── Row 1 left axis: stacked TVL areas ──
-    fig.add_trace(go.Scatter(
-        x=d.index, y=d['stable_tvl_usd'] / 1e9,
-        mode='lines', stackgroup='tvl',
-        fillcolor='rgba(212,168,67,0.22)',
-        line=dict(color=GOLD, width=1.0),
-        name='Stablecoins', showlegend=True,
-        hovertemplate='%{x|%Y-%m-%d}<br>Stablecoins: $%{y:.1f}B<extra></extra>'
-    ), row=1, col=1, secondary_y=False)
-
-    fig.add_trace(go.Scatter(
-        x=d.index, y=d['defi_tvl_usd'] / 1e9,
-        mode='lines', stackgroup='tvl',
-        fillcolor='rgba(122,143,159,0.22)',
-        line=dict(color=MIST, width=1.0),
-        name='DeFi TVL', showlegend=True,
-        hovertemplate='%{x|%Y-%m-%d}<br>DeFi: $%{y:.1f}B<extra></extra>'
-    ), row=1, col=1, secondary_y=False)
-
-    fig.add_trace(go.Scatter(
-        x=d.index, y=d['rwa_tvl_usd'] / 1e9,
-        mode='lines', stackgroup='tvl',
-        fillcolor='rgba(42,191,122,0.18)',
-        line=dict(color=GREEN_LIT, width=1.4),
-        name='RWA TVL', showlegend=True,
-        hovertemplate='%{x|%Y-%m-%d}<br>RWA: $%{y:.1f}B<extra></extra>'
-    ), row=1, col=1, secondary_y=False)
-
-    # ── Row 1 right axis: ETH price (log) ──
-    fig.add_trace(go.Scatter(
-        x=d.index, y=d['eth_price'],
-        mode='lines', line=dict(color=GOLD_LIT, width=1.8),
-        name='ETH Price', showlegend=True,
-        hovertemplate='%{x|%Y-%m-%d}<br>ETH: $%{y:,.0f}<extra></extra>'
-    ), row=1, col=1, secondary_y=True)
-
-    # ── Row 2: TVL / Mcap ratio ──
     ratio        = d['total_to_mcap']
     ratio_smooth = ratio.rolling(30, min_periods=7).mean()
+    record       = ratio_smooth.cummax()
+
+    fig = make_subplots(rows=2, cols=1, shared_xaxes=True,
+                        row_heights=[0.55, 0.45], vertical_spacing=0.05)
+
+    fig.add_trace(go.Scatter(
+        x=d.index, y=d['eth_price'],
+        mode='lines', line=dict(color=GOLD, width=1.8),
+        name='ETH Price', showlegend=True,
+        hovertemplate='%{x|%Y-%m-%d}<br>ETH: $%{y:,.0f}<extra></extra>'
+    ), row=1, col=1)
 
     fig.add_trace(go.Scatter(
         x=d.index, y=ratio,
-        mode='lines', line=dict(color='rgba(212,168,67,0.25)', width=0.8),
-        fill='tozeroy', fillcolor='rgba(212,168,67,0.07)',
-        showlegend=False,
-        hovertemplate='%{x|%Y-%m-%d}<br>Secured/Mcap: %{y:.2f}x<extra></extra>'
+        mode='lines', line=dict(color='rgba(143,174,230,0.30)', width=0.8),
+        name='Secured / market cap (daily)', showlegend=True,
+        hovertemplate='%{x|%Y-%m-%d}<br>Secured / market cap: %{y:.2f}×<extra></extra>'
     ), row=2, col=1)
-
     fig.add_trace(go.Scatter(
         x=d.index, y=ratio_smooth,
-        mode='lines', name='TVL/Mcap 30d MA', line=dict(color=GOLD, width=1.5),
+        mode='lines', name='30-day average', line=dict(color=ETH_BLUE, width=1.8),
         showlegend=True,
-        hovertemplate='%{x|%Y-%m-%d}<br>30d MA: %{y:.2f}x<extra></extra>'
+        hovertemplate='%{x|%Y-%m-%d}<br>30-day average: %{y:.2f}×<extra></extra>'
+    ), row=2, col=1)
+    fig.add_trace(go.Scatter(
+        x=d.index, y=record,
+        mode='lines', name='Record (30-day)', line=dict(color=WHITE, width=1.0, dash='dot'),
+        opacity=0.6, showlegend=True,
+        hovertemplate='%{x|%Y-%m-%d}<br>Record so far: %{y:.2f}×<extra></extra>'
     ), row=2, col=1)
 
-    # Latest readings go in the page subtitle (the end-of-line labels clipped,
-    # and the price label was in linear units on a log axis so never showed)
     latest = d.iloc[-1]
+    rec_val = record.iloc[-1]
+    rec_day = ratio_smooth.idxmax()
     subtitle = (
         f'<b>ETH ${latest["eth_price"]:,.0f}</b>  ·  '
-        f'${latest["total_secured_usd"]/1e9:.0f}B secured  ·  '
-        f'secured / market cap {latest["total_to_mcap"]:.2f}×  ·  {date_long(d.index[-1])}'
+        f'${latest["total_secured_usd"]/1e9:.0f}B secured vs. ${latest["mcap"]/1e9:.0f}B ETH market cap  ·  '
+        f'<b>{latest["total_to_mcap"]:.2f}×</b> (30-day {ratio_smooth.iloc[-1]:.2f}×, '
+        f'record {rec_val:.2f}× in {rec_day.strftime("%b %Y")})  ·  {date_long(d.index[-1])}'
     )
 
     apply_theme(fig)
-    fig.update_yaxes(tickprefix='$', ticksuffix='B', title_text='TVL ($B)',
-                     range=[0, 350],
-                     row=1, col=1, secondary_y=False)
-    fig.update_yaxes(type='log', tickformat='$,.0f', title_text='ETH Price',
-                     row=1, col=1, secondary_y=True, showgrid=False)
-    fig.update_yaxes(title_text='TVL / Market Cap', ticksuffix='×', row=2, col=1)
-    fig.update_xaxes(title_text='', row=2, col=1)
+    fig.update_yaxes(type='log', tickformat='$,.0f', title_text='ETH Price', row=1, col=1)
+    fig.update_yaxes(title_text='Secured / market cap', ticksuffix='×', rangemode='tozero', row=2, col=1)
     return fig, subtitle
 
 
@@ -271,13 +240,13 @@ def plot_stacked_tvl_mcap(df):
 # ════════════════════════════════════════════
 if __name__ == '__main__':
     os.makedirs('docs', exist_ok=True)
-    print('=== Building ETH Stacked TVL + Price + TVL/Mcap ===')
+    print('=== Building ETH Price | Secured Value / Market Cap ===')
     df  = build_dataframe()
     fig, subtitle = plot_stacked_tvl_mcap(df)
     write_chart(fig, OUTPUT_PATH,
                 title='ETH Secured Value vs. Market Cap',
                 subtitle=subtitle,
-                note='Stacked stablecoin, DeFi and RWA value (left) with ETH price (right, log); '
-                     'lower panel = total secured ÷ ETH market cap',
+                note='Value secured on Ethereum (stablecoins + DeFi + RWA) ÷ ETH market cap. '
+                     'Above 1× Ethereum would secure more than it is worth',
                 source=SOURCE, default='5Y')
     print(f'Saved: {OUTPUT_PATH}')

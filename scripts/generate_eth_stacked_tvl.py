@@ -207,8 +207,8 @@ def plot_eth_vs_stacked_tvl_ath(df):
     fig.add_trace(go.Scatter(
         x=d.index, y=d['stable_tvl_usd'] / 1e9,
         mode='lines', stackgroup='tvl',
-        fillcolor='rgba(212,168,67,0.22)',
-        line=dict(color=GOLD, width=1.0),
+        fillcolor='rgba(42,191,122,0.32)',
+        line=dict(color='#2ABF7A', width=1.2),
         name='Stablecoins', showlegend=True,
         hovertemplate='%{x|%Y-%m-%d}<br>Stablecoins: $%{y:.1f}B<extra></extra>'
     ), row=2, col=1)
@@ -216,8 +216,8 @@ def plot_eth_vs_stacked_tvl_ath(df):
     fig.add_trace(go.Scatter(
         x=d.index, y=d['defi_tvl_usd'] / 1e9,
         mode='lines', stackgroup='tvl',
-        fillcolor='rgba(122,143,159,0.22)',
-        line=dict(color=MIST, width=1.0),
+        fillcolor='rgba(143,174,230,0.32)',
+        line=dict(color='#8FAEE6', width=1.2),
         name='DeFi TVL', showlegend=True,
         hovertemplate='%{x|%Y-%m-%d}<br>DeFi: $%{y:.1f}B<extra></extra>'
     ), row=2, col=1)
@@ -225,8 +225,8 @@ def plot_eth_vs_stacked_tvl_ath(df):
     fig.add_trace(go.Scatter(
         x=d.index, y=d['rwa_tvl_usd'] / 1e9,
         mode='lines', stackgroup='tvl',
-        fillcolor='rgba(42,191,122,0.18)',
-        line=dict(color=GREEN_LIT, width=1.4),
+        fillcolor='rgba(180,142,224,0.55)',
+        line=dict(color='#B48EE0', width=1.4),
         name='RWA TVL', showlegend=True,
         hovertemplate='%{x|%Y-%m-%d}<br>RWA: $%{y:.1f}B<extra></extra>'
     ), row=2, col=1)
