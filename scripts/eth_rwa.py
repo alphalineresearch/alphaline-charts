@@ -34,7 +34,7 @@ DATA_DIR  = os.path.join(HERE, '..', 'data', 'eth_rwa')
 TOKENS    = os.path.join(DATA_DIR, 'tokens.csv')
 SUPPLY    = os.path.join(DATA_DIR, 'supply.csv')
 CACHE     = os.path.join(DATA_DIR, 'rwa_daily.csv')
-NAV_FILE  = os.path.join(DATA_DIR, 'nav_prices.csv')    # last good NAVs, the fallback if CoinGecko fails
+NAV_FILE  = os.path.join(DATA_DIR, 'nav_prices.csv')    # observed NAVs: history beyond CoinGecko's year, and the fallback
 RPCS      = ['https://eth.drpc.org', 'https://ethereum-rpc.publicnode.com', 'https://eth.llamarpc.com']
 TROY_OZ_G = 31.1034768
 ETH_TVL_THRESHOLD = 1_000_000
@@ -181,18 +181,23 @@ def _coingecko_daily(cid):
     raise RuntimeError(f'CoinGecko rate limit for {cid}')
 
 
-def _nav(cid, index):
-    """Daily NAV: CoinGecko for the last year; earlier dates discounted from the oldest
-    CoinGecko price at the yield implied by the year (clipped to 0–15% a year)."""
+def _nav(cid, index, saved=None):
+    """Daily NAV from observed prices: CoinGecko's last year plus every price saved on
+    earlier runs (so the observed history grows past CoinGecko's one-year limit). Dates
+    before the first observation are discounted at the yield the latest year implies
+    (clipped to 0–15% a year). Returns (nav on index, observed prices)."""
     p = _coingecko_daily(cid)
     p = p[p > 0]
-    years = (p.index[-1] - p.index[0]).days / 365.25
-    r = np.log(p.iloc[-1] / p.iloc[0]) / years if years > 0.25 else 0.0
+    if saved is not None and len(saved.dropna()):
+        p = p.combine_first(saved.dropna())          # fresh CoinGecko prices win
+    yr = p[p.index >= p.index[-1] - pd.Timedelta(days=365)]
+    years = (yr.index[-1] - yr.index[0]).days / 365.25
+    r = np.log(yr.iloc[-1] / yr.iloc[0]) / years if years > 0.25 else 0.0
     r = float(np.clip(r, 0, 0.15))
     nav = p.reindex(index.union(p.index)).interpolate(limit_area='inside').reindex(index)
     early = index < p.index[0]
     nav[early] = p.iloc[0] * np.exp(-r * (p.index[0] - index[early]).days / 365.25)
-    return nav.ffill()
+    return nav.ffill(), p
 
 
 def _saved_navs():
@@ -219,8 +224,7 @@ def token_values(supply, index):
             px = pd.Series(1.0, index=index)
         else:
             try:
-                px = _nav(t.coingecko_id, index)
-                fresh[sym] = px
+                px, fresh[sym] = _nav(t.coingecko_id, index, saved.get(sym))
                 time.sleep(4)                       # CoinGecko free tier
             except Exception as e:
                 if sym not in saved:
@@ -229,9 +233,9 @@ def token_values(supply, index):
                 print(f'  ! {sym}: CoinGecko failed ({e}); using saved NAVs')
                 px = saved[sym].reindex(index.union(saved.index)).ffill().bfill().reindex(index)
         vals[sym] = (sup[sym] * px).fillna(0)
-    if fresh:
-        nav = saved.combine_first(pd.DataFrame(fresh)) if len(saved) else pd.DataFrame(fresh)
-        nav.update(pd.DataFrame(fresh))
+    if fresh:                                       # observed prices only, never estimates
+        obs = pd.DataFrame(fresh)
+        nav = obs.combine_first(saved) if len(saved) else obs
         nav.sort_index().to_csv(NAV_FILE, float_format='%.6f')
     return pd.DataFrame(vals, index=index)
 
