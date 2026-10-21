@@ -1,11 +1,19 @@
 """
 generate_mstr_pnav_heatmap.py
-Alphaline Research — MSTR P/NAV Z-Score Heatmap + BTC Production Cost
+Alphaline Research — MSTR mNAV Z-Score Heatmap + BTC Production Cost
+
+mNAV (net) = MSTR market cap ÷ (BTC held × BTC price + USD cash − debt − preferred)
+
+  Strategy has ~$20B of convertible debt and preferred stock that rank ahead of
+  common shareholders, so comparing market cap to the gross BTC value overstates
+  what common equity owns. This chart uses the net figure.
 
 Data sources (no API keys required):
-  - Yahoo Finance: MSTR price, BTC price, shares outstanding (via yfinance)
+  - Yahoo Finance: MSTR price, BTC price (via yfinance)
   - blockchain.com: mining difficulty → BTC production cost
-  - Strategy (MSTR) SEC filings: BTC holdings lookup table (hardcoded, update periodically)
+  - Strategy (strategy.com ledger) + SEC filings: BTC holdings, basic shares
+    (Class A + Class B), debt, preferred and USD reserve — hardcoded tables,
+    update weekly from Strategy's Monday 8-K.
 
 Writes docs/mstr_pnav_heatmap.html.
 
@@ -36,6 +44,7 @@ SPLIT_FACTOR  = 10
 BULL_THRESH   = 2.0
 BEAR_THRESH   = 1.2
 SMOOTH_SPAN   = 14
+ZSCORE_CAP    = 6.0    # cap outliers when calibrating mean / std
 COST_BAND_MULT = 1.5
 
 EFFICIENCY_SCHEDULE = {
@@ -158,6 +167,86 @@ BTC_HOLDINGS_RAW = [
     ('2025-02-24',  499_096),
     ('2025-03-31',  506_137),
     ('2025-04-07',  528_185),
+    # ── strategy.com/ledger (weekly 8-Ks) ──
+    ('2025-04-14',  531_644), ('2025-04-21',  538_200), ('2025-04-28',  553_555),
+    ('2025-05-05',  555_450), ('2025-05-12',  568_840), ('2025-05-19',  576_230),
+    ('2025-05-26',  580_250), ('2025-06-02',  580_955), ('2025-06-09',  582_000),
+    ('2025-06-16',  592_100), ('2025-06-23',  592_345), ('2025-06-30',  597_325),
+    ('2025-07-14',  601_550), ('2025-07-21',  607_770), ('2025-07-29',  628_791),
+    ('2025-08-11',  628_946), ('2025-08-18',  629_376), ('2025-08-25',  632_457),
+    ('2025-09-02',  636_505), ('2025-09-08',  638_460), ('2025-09-15',  638_985),
+    ('2025-09-22',  639_835), ('2025-09-29',  640_031), ('2025-10-13',  640_250),
+    ('2025-10-20',  640_418), ('2025-10-27',  640_808), ('2025-11-03',  641_205),
+    ('2025-11-10',  641_692), ('2025-11-17',  649_870), ('2025-12-01',  650_000),
+    ('2025-12-08',  660_624), ('2025-12-15',  671_268), ('2025-12-29',  672_497),
+    ('2025-12-31',  672_500), ('2026-01-05',  673_783), ('2026-01-12',  687_410),
+    ('2026-01-20',  709_715), ('2026-01-26',  712_647), ('2026-02-02',  713_502),
+    ('2026-02-09',  714_644), ('2026-02-17',  717_131), ('2026-02-23',  717_722),
+    ('2026-03-02',  720_737), ('2026-03-09',  738_731), ('2026-03-16',  761_068),
+    ('2026-03-23',  762_099), ('2026-04-06',  766_970), ('2026-04-13',  780_897),
+    ('2026-04-20',  815_061), ('2026-04-27',  818_334), ('2026-05-11',  818_869),
+    ('2026-05-18',  843_738), ('2026-06-01',  843_706), ('2026-06-08',  845_256),
+    ('2026-06-15',  846_842), ('2026-06-22',  847_363), ('2026-06-30',  846_000),
+    ('2026-07-06',  843_775), ('2026-08-03',  842_138), ('2026-08-10',  840_447),
+    ('2026-08-31',  845_050), ('2026-09-21',  846_000), ('2026-09-28',  847_666),
+    ('2026-10-05',  848_000), ('2026-10-12',  848_250), ('2026-10-19',  848_517),
+]
+
+# ════════════════════════════════════════════
+# BASIC SHARES OUTSTANDING (Class A + Class B, split-adjusted)
+# Source: strategy.com share history + weekly ledger. Yahoo's share series
+# misses the 19.64M Class B shares and lags ATM issuance, so we use
+# Strategy's own counts and interpolate between them.
+# ════════════════════════════════════════════
+SHARES_RAW = [
+    ('2020-08-01',  96_600_000),
+    ('2020-12-31',  95_870_000), ('2021-12-31', 112_855_000),
+    ('2022-12-31', 115_488_000), ('2023-12-31', 168_681_000),
+    ('2024-12-31', 245_778_000), ('2025-06-30', 261_318_000),
+    ('2025-07-21', 283_553_000), ('2025-08-25', 284_641_000),
+    ('2025-09-29', 287_093_000), ('2025-11-03', 287_354_000),
+    ('2025-12-08', 300_800_000), ('2025-12-31', 312_062_000),
+    ('2026-01-20', 330_174_000), ('2026-02-23', 334_098_000),
+    ('2026-03-23', 345_594_000), ('2026-04-20', 348_992_000),
+    ('2026-05-18', 351_659_000), ('2026-06-30', 371_603_000),
+    ('2026-08-03', 387_614_000), ('2026-08-31', 420_483_000),
+    ('2026-09-28', 421_977_908), ('2026-10-19', 422_353_257),
+]
+
+# ════════════════════════════════════════════
+# CAPITAL STRUCTURE — step changes ($)
+#   debt  = convertible / secured notes + loans (principal)
+#   pref  = preferred stock liquidation preference (STRK/STRF/STRD/STRC/STRE)
+#   cash  = USD reserve + cash (only counted from the USD-reserve era)
+# Exact figures from 10-Q/10-K and strategy.com where marked ✓;
+# others are approximate quarter-end estimates — VERIFY against filings.
+# ════════════════════════════════════════════
+CAPITAL_RAW = [
+    # date,          debt,           pref,            cash
+    ('2020-08-01',            0,               0,               0),
+    ('2020-12-11',  650_000_000,               0,               0),   # 2025 converts
+    ('2021-02-19', 1_700_000_000,              0,               0),   # + 2027 converts
+    ('2021-06-14', 2_200_000_000,              0,               0),   # + secured notes
+    ('2022-03-29', 2_405_000_000,              0,               0),   # + Silvergate loan
+    ('2023-03-24', 2_200_000_000,              0,               0),   # loan repaid
+    ('2024-03-09', 3_000_000_000,              0,               0),   # + 2030A ✓
+    ('2024-03-19', 3_603_750_000,              0,               0),   # + 2031 ✓
+    ('2024-06-18', 3_903_750_000,              0,               0),   # + 2032 ✓, secured notes redeemed
+    ('2024-09-20', 4_263_750_000,              0,               0),   # + 2028 ✓, 2025s retired
+    ('2024-11-22', 7_263_750_000,              0,               0),   # + 2029 ($3.0B)
+    ('2025-01-31', 7_263_750_000,    730_000_000,               0),   # STRK IPO
+    ('2025-02-22', 8_213_750_000,    730_000_000,               0),   # + 2030B ✓, 2027s converted
+    ('2025-03-31', 8_213_750_000,  1_900_000_000,               0),   # + STRF (≈)
+    ('2025-06-30', 8_213_750_000,  3_400_000_000,               0),   # + STRD (≈)
+    ('2025-07-29', 8_213_750_000,  6_200_000_000,               0),   # + STRC IPO (≈)
+    ('2025-09-30', 8_213_750_000,  6_900_000_000,               0),   # (≈)
+    ('2025-12-01', 8_213_750_000,  7_700_000_000,   1_440_000_000),   # USD reserve created
+    ('2025-12-31', 8_213_750_000,  8_032_324_000,   2_301_470_000),   # ✓ 10-K
+    ('2026-03-31', 8_213_750_000, 11_700_000_000,   2_210_000_000),   # pref ≈, cash ✓
+    ('2026-05-31', 6_713_750_000, 13_500_000_000,   2_300_000_000),   # $1.5B 2029s repurchased ✓
+    ('2026-06-30', 6_713_750_000, 15_462_056_000,   2_447_982_000),   # ✓ 10-Q
+    ('2026-07-26', 6_713_750_000, 15_200_000_000,   3_750_000_000),   # reserve ✓
+    ('2026-10-19', 6_714_000_000, 13_556_668_500,   5_280_000_000),   # ✓ strategy.com
 ]
 
 def _build_btc_holdings():
@@ -167,11 +256,31 @@ def _build_btc_holdings():
     _daily_idx = pd.date_range(_btc.index[0], datetime.utcnow().date(), freq='D')
     return _btc.reindex(_daily_idx).ffill().rename_axis('date')
 
+def _build_shares():
+    _s = pd.DataFrame(SHARES_RAW, columns=['date', 'shares'])
+    _s['date'] = pd.to_datetime(_s['date'])
+    _s = _s.set_index('date').sort_index()['shares'].astype(float)
+    _idx = pd.date_range(_s.index[0], datetime.utcnow().date(), freq='D')
+    # interpolate between disclosures, then hold the latest count flat
+    return _s.reindex(_idx).interpolate(method='time').ffill().rename_axis('date')
+
+def _build_capital():
+    _c = pd.DataFrame(CAPITAL_RAW, columns=['date', 'debt', 'pref', 'cash'])
+    _c['date'] = pd.to_datetime(_c['date'])
+    _c = _c.set_index('date').sort_index().astype(float)
+    _idx = pd.date_range(_c.index[0], datetime.utcnow().date(), freq='D')
+    _c = _c.reindex(_idx)
+    # Debt moves in discrete issues/redemptions → step.
+    # Preferred (ATM sales, buybacks) and cash move continuously → interpolate.
+    _c['debt'] = _c['debt'].ffill()
+    _c[['pref', 'cash']] = _c[['pref', 'cash']].interpolate(method='time').ffill()
+    return _c.rename_axis('date')
+
 # ════════════════════════════════════════════
 # DATA FETCHERS
 # ════════════════════════════════════════════
 def fetch_price_data():
-    """Fetch MSTR price, BTC price, and shares outstanding via yfinance."""
+    """Fetch MSTR and BTC daily closes via yfinance."""
     print('Fetching MSTR price...')
     mstr_raw = yf.download('MSTR', start=START, interval='1d', progress=False)
     if isinstance(mstr_raw.columns, pd.MultiIndex):
@@ -195,38 +304,7 @@ def fetch_price_data():
         btc_px = btc_px.iloc[:-1]
     print(f'  BTC:  {len(btc_px)} rows | latest ${btc_px.iloc[-1]:,.0f}')
 
-    print('Fetching MSTR shares outstanding...')
-    ticker = yf.Ticker('MSTR')
-    shares_daily = None
-    try:
-        shares_raw = ticker.get_shares_full(start=START)
-        if shares_raw is not None and len(shares_raw) > 5:
-            shares_raw.index = pd.to_datetime(shares_raw.index).tz_localize(None)
-            shares_raw = shares_raw[~shares_raw.index.duplicated(keep='last')].sort_index()
-            shares_raw[shares_raw.index < SPLIT_DATE] *= SPLIT_FACTOR
-            _sidx = pd.date_range(shares_raw.index[0], datetime.utcnow().date(), freq='D')
-            shares_daily = shares_raw.reindex(_sidx).ffill().rename_axis('date').rename('shares')
-            print(f'  Shares: {len(shares_raw)} obs | latest {shares_daily.iloc[-1]/1e6:.1f}M (split-adj)')
-    except Exception as e:
-        print(f'  get_shares_full failed: {e}')
-
-    if shares_daily is None:
-        print('  Using fallback quarterly shares table (split-adjusted)...')
-        _fallback = [
-            ('2020-08-01',  105_000_000), ('2021-01-01',  107_000_000),
-            ('2021-07-01',  109_000_000), ('2022-01-01',  110_000_000),
-            ('2022-07-01',  111_000_000), ('2023-01-01',  133_000_000),
-            ('2023-07-01',  150_000_000), ('2024-01-01',  163_000_000),
-            ('2024-08-01',  210_000_000), ('2024-10-01',  230_000_000),
-            ('2025-01-01',  280_000_000),
-        ]
-        _sf = pd.DataFrame(_fallback, columns=['date', 'shares'])
-        _sf['date'] = pd.to_datetime(_sf['date'])
-        _sf = _sf.set_index('date').sort_index()
-        _sidx = pd.date_range(_sf.index[0], datetime.utcnow().date(), freq='D')
-        shares_daily = _sf.reindex(_sidx).ffill()['shares'].rename_axis('date').rename('shares')
-
-    return mstr_px, btc_px, shares_daily
+    return mstr_px, btc_px
 
 
 def fetch_production_cost():
@@ -280,23 +358,34 @@ def fetch_production_cost():
 # ════════════════════════════════════════════
 def build_dataframe():
     btc_holdings = _build_btc_holdings()
-    mstr_px, btc_px, shares_daily = fetch_price_data()
+    shares_daily = _build_shares()
+    capital      = _build_capital()
+    mstr_px, btc_px = fetch_price_data()
     cost_series, has_cost = fetch_production_cost()
 
     df = pd.concat([mstr_px, btc_px], axis=1).dropna()
     df = df.join(btc_holdings['btc_held'], how='left')
     df = df.join(shares_daily.rename('shares'), how='left')
-    df['btc_held'] = df['btc_held'].ffill()
-    df['shares']   = df['shares'].ffill()
+    df = df.join(capital, how='left')
+    for c in ['btc_held', 'shares', 'debt', 'pref', 'cash']:
+        df[c] = df[c].ffill()
     df = df.dropna(subset=['btc_held', 'shares'])
+    df[['debt', 'pref', 'cash']] = df[['debt', 'pref', 'cash']].fillna(0)
 
     df['btc_nav']     = df['btc_held'] * df['btc_price']
+    df['net_assets']  = df['btc_nav'] + df['cash'] - df['debt'] - df['pref']
     df['mstr_mktcap'] = df['mstr_price'] * df['shares']
-    df['pnav']        = df['mstr_mktcap'] / df['btc_nav']
+    df['pnav_gross']  = df['mstr_mktcap'] / df['btc_nav']
+    # Net mNAV is only meaningful when common equity has a real claim on the BTC.
+    # In late 2022 debt was close to the whole BTC stack, so the ratio explodes;
+    # leave those days blank rather than plot a meaningless spike.
+    MIN_NET_SHARE = 0.25
+    df['pnav'] = (df['mstr_mktcap'] / df['net_assets']).where(df['net_assets'] > MIN_NET_SHARE * df['btc_nav'])
+    df = df.dropna(subset=['pnav'])
     df['pnav_smooth'] = df['pnav'].ewm(span=SMOOTH_SPAN, adjust=False).mean()
 
     # Z-score (calibrated to post-2022 era only)
-    cal       = df.loc[ZSCORE_START:, 'pnav_smooth']
+    cal       = df.loc[ZSCORE_START:, 'pnav_smooth'].clip(upper=ZSCORE_CAP)
     pnav_mu   = cal.mean()
     pnav_std  = cal.std()
     df['pnav_zscore']      = (df['pnav_smooth'] - pnav_mu) / pnav_std
@@ -305,6 +394,9 @@ def build_dataframe():
     print(f'\nDataFrame: {len(df)} rows | {df.index[0].date()} → {df.index[-1].date()}')
     print(f'Z-score: mu={pnav_mu:.2f}x  sigma={pnav_std:.2f}x  '
           f'current={df["pnav_zscore"].iloc[-1]:+.2f}s ({df["pnav_smooth"].iloc[-1]:.2f}x)')
+    last = df.iloc[-1]
+    print(f'Latest {df.index[-1].date()}: mcap ${last.mstr_mktcap/1e9:,.1f}B | BTC ${last.btc_nav/1e9:,.1f}B | '
+          f'net assets ${last.net_assets/1e9:,.1f}B | mNAV net {last.pnav:.2f}x (gross {last.pnav_gross:.2f}x)')
 
     return df, cost_series, has_cost, pnav_mu, pnav_std
 
@@ -431,7 +523,8 @@ def plot_heatmap_chart(df, cost_series, has_cost, pnav_mu, pnav_std):
     fig.add_trace(go.Bar(
         x=df.index,
         y=df['pnav_smooth'],
-        name='P/NAV (z-score heatmap)',
+        name='mNAV (z-score heatmap)',
+        customdata=np.stack([df['pnav_gross'], df['net_assets'] / 1e9], axis=-1),
         showlegend=False,
         marker=dict(
             color=df['pnav_zscore_clip'],
@@ -454,7 +547,9 @@ def plot_heatmap_chart(df, cost_series, has_cost, pnav_mu, pnav_std):
         ),
         hovertemplate=(
             '%{x|%Y-%m-%d}<br>'
-            'P/NAV: %{y:.2f}x<br>'
+            'mNAV (net): %{y:.2f}x<br>'
+            'mNAV (gross BTC): %{customdata[0]:.2f}x<br>'
+            'Net assets: $%{customdata[1]:,.1f}B<br>'
             'z-score: %{marker.color:+.2f}s'
             '<extra></extra>'
         ),
@@ -497,8 +592,8 @@ def plot_heatmap_chart(df, cost_series, has_cost, pnav_mu, pnav_std):
 
     # ── Layout ──────────────────────────────────────────────
     cost_note = '' if has_cost else '  (cost unavailable)'
-    subtitle = f'{regime_now}  ·  P/NAV: {pnav_now:.2f}x  ·  Z: {zscore_now:+.1f}σ'
-    alphaline_layout(fig, f'MSTR P/NAV — Z-Score Heatmap{cost_note}', subtitle=subtitle, height=CHART_HEIGHT)
+    subtitle = f'{regime_now}  ·  mNAV: {pnav_now:.2f}x  ·  Z: {zscore_now:+.1f}σ  ·  net of debt & preferred'
+    alphaline_layout(fig, f'MSTR mNAV — Z-Score Heatmap{cost_note}', subtitle=subtitle, height=CHART_HEIGHT)
     fig.update_layout(
         bargap=0,
         showlegend=True,
@@ -508,7 +603,8 @@ def plot_heatmap_chart(df, cost_series, has_cost, pnav_mu, pnav_std):
                     y=-0.07, yanchor='top', tracegroupgap=0),
     )
     fig.update_yaxes(type='log', tickprefix='$', title_text='BTC Price (log)', row=1, col=1)
-    fig.update_yaxes(title_text='P/NAV (x)', ticksuffix='x', row=2, col=1)
+    fig.update_yaxes(title_text='mNAV (x, net)', ticksuffix='x', row=2, col=1,
+                     range=[0, min(df['pnav_smooth'].max() * 1.08, ZSCORE_CAP + 1)])
     fig.update_xaxes(title_text='', row=2, col=1)
 
     return fig
@@ -519,7 +615,7 @@ def plot_heatmap_chart(df, cost_series, has_cost, pnav_mu, pnav_std):
 # ════════════════════════════════════════════
 if __name__ == '__main__':
     os.makedirs('docs', exist_ok=True)
-    print('=== Building MSTR P/NAV Z-Score Heatmap + Production Cost ===')
+    print('=== Building MSTR mNAV (net) Z-Score Heatmap + Production Cost ===')
     df, cost_series, has_cost, pnav_mu, pnav_std = build_dataframe()
     fig = plot_heatmap_chart(df, cost_series, has_cost, pnav_mu, pnav_std)
     fig.write_html(OUTPUT_PATH, include_plotlyjs='cdn', config={'responsive': True})
