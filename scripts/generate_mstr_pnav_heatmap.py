@@ -31,6 +31,8 @@ from plotly.subplots import make_subplots
 from datetime import datetime
 import yfinance as yf
 
+from alphaline_theme import apply_theme, write_chart, sigma, date_long
+
 warnings.filterwarnings('ignore')
 
 # ════════════════════════════════════════════
@@ -64,66 +66,20 @@ HALVING_SCHEDULE = [
 # ════════════════════════════════════════════
 # BRAND COLORS
 # ════════════════════════════════════════════
-NAVY      = '#0A1628'
-NAVY_MID  = '#102240'
-NAVY_LIT  = '#1A3A6E'
-GOLD      = '#D4A843'
+GOLD     = '#D4A843'
 GOLD_LIT  = '#ECC96A'
 GOLD_DIM  = '#8A6B25'
-WHITE     = '#F8FAFB'
 MIST      = '#7A8F9F'
 STEEL     = '#374D61'
 GREEN     = '#1A8A5A'
 RED       = '#8A1A1A'
 GREEN_LIT = '#2ABF7A'
 RED_LIT   = '#D64444'
-CHART_WIDTH  = 1100
-CHART_HEIGHT = 870
+SOURCE = 'Yahoo Finance · Strategy (MSTR) · blockchain.com'
 
 def hex_to_rgba(h, a=0.35):
     h = h.lstrip('#')
     return f'rgba({int(h[0:2],16)},{int(h[2:4],16)},{int(h[4:6],16)},{a})'
-
-# ════════════════════════════════════════════
-# ALPHALINE LAYOUT
-# ════════════════════════════════════════════
-def alphaline_layout(fig, title, height=CHART_HEIGHT, subtitle='',
-                     source='alphalineresearch.com  |  Yahoo Finance · Strategy (MSTR) · blockchain.com'):
-    fig.update_layout(
-        template='plotly_dark',
-        paper_bgcolor=NAVY, plot_bgcolor=NAVY_MID,
-        height=height, autosize=True,
-        title=dict(
-            text=(
-                f'<span style="font-family:Georgia,serif; font-size:15px; color:{WHITE};">{title}</span>'
-                f'<br><span style="font-family:Courier New,monospace; font-size:8px; color:{GOLD};">ALPHALINE RESEARCH</span>'
-                + (f'<br><span style="font-family:Courier New,monospace; font-size:9px; color:{MIST};">{subtitle}</span>' if subtitle else '')
-            ),
-            x=0.02, xanchor='left', y=0.985, yanchor='top'
-        ),
-        font=dict(family='Courier New, monospace', color=MIST, size=10),
-        margin=dict(l=40, r=20, t=80, b=115),
-        xaxis=dict(gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5, zeroline=False,
-                   showspikes=True, spikecolor=MIST, spikethickness=1, spikedash='dot'),
-        yaxis=dict(gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5, zeroline=False),
-        hoverlabel=dict(bgcolor=NAVY_MID, bordercolor=GOLD,
-                        font=dict(family='Courier New, monospace', size=11, color=WHITE)),
-        legend=dict(
-            bgcolor='rgba(10,22,40,0.0)', bordercolor='rgba(0,0,0,0)', borderwidth=0,
-            font=dict(size=9, color=MIST),
-            orientation='h', x=0.5, xanchor='center',
-            y=-0.09, yanchor='top',
-            tracegroupgap=0,
-        ),
-        annotations=[
-            dict(text=f'Source: {source}',
-                 xref='paper', yref='paper', x=0.99, y=-0.04,
-                 xanchor='right', yanchor='top',
-                 font=dict(family='Courier New, monospace', size=8, color=STEEL),
-                 showarrow=False),
-        ],
-    )
-    return fig
 
 # ════════════════════════════════════════════
 # BTC HOLDINGS LOOKUP TABLE
@@ -497,13 +453,6 @@ def plot_heatmap_chart(df, cost_series, has_cost, pnav_mu, pnav_std):
             hovertemplate='%{x|%Y-%m-%d}<br>Cost: $%{y:,.0f}<extra></extra>',
         ), row=1, col=1)
 
-        fig.add_annotation(
-            x=cost_p.index[-1], y=cost_p.iloc[-1],
-            text=f'  cost ${cost_p.iloc[-1]:,.0f}',
-            showarrow=False, xanchor='left',
-            font=dict(family='Courier New, monospace', size=9, color=GREEN_LIT),
-        )
-
     # ── Panel 1: BTC price (log) ─────────────────────────────
     fig.add_trace(go.Scatter(
         x=df.index, y=df['btc_price'],
@@ -511,13 +460,6 @@ def plot_heatmap_chart(df, cost_series, has_cost, pnav_mu, pnav_std):
         line=dict(color=GOLD, width=1.8),
         hovertemplate='%{x|%Y-%m-%d}<br>BTC: $%{y:,.0f}<extra></extra>'
     ), row=1, col=1)
-
-    fig.add_annotation(
-        x=df.index[-1], y=df['btc_price'].iloc[-1],
-        text=f'  ${df["btc_price"].iloc[-1]:,.0f}',
-        showarrow=False, xanchor='left',
-        font=dict(family='Courier New, monospace', size=10, color=GOLD)
-    )
 
     # ── Panel 2: P/NAV heatmap bars ─────────────────────────
     fig.add_trace(go.Bar(
@@ -531,17 +473,13 @@ def plot_heatmap_chart(df, cost_series, has_cost, pnav_mu, pnav_std):
             colorscale=CSCALE,
             cmin=-3, cmax=3,
             colorbar=dict(
-                title=dict(
-                    text='z-score',
-                    font=dict(family='Courier New, monospace', size=9, color=MIST),
-                    side='right',
-                ),
-                tickfont=dict(family='Courier New, monospace', size=8, color=MIST),
+                title=dict(text='z-score', font=dict(size=12, color=MIST), side='right'),
+                tickfont=dict(size=12, color=MIST),
                 tickvals=[-3, -2, -1, 0, 1, 2, 3],
-                ticktext=['-3s', '-2s', '-1s', '  0', '+1s', '+2s', '+3s'],
-                len=0.38, thickness=11,
-                x=1.03, y=0.0, yanchor='bottom',
-                bgcolor=NAVY, bordercolor=STEEL, borderwidth=1,
+                ticktext=['−3σ', '−2σ', '−1σ', '0', '+1σ', '+2σ', '+3σ'],
+                len=0.38, thickness=10,
+                x=1.0, xpad=8, y=0.0, yanchor='bottom',
+                outlinewidth=0, bgcolor='rgba(0,0,0,0)',
             ),
             line_width=0,
         ),
@@ -550,7 +488,7 @@ def plot_heatmap_chart(df, cost_series, has_cost, pnav_mu, pnav_std):
             'mNAV (net): %{y:.2f}x<br>'
             'mNAV (gross BTC): %{customdata[0]:.2f}x<br>'
             'Net assets: $%{customdata[1]:,.1f}B<br>'
-            'z-score: %{marker.color:+.2f}s'
+            'z-score: %{marker.color:+.2f}σ'
             '<extra></extra>'
         ),
     ), row=2, col=1)
@@ -558,11 +496,11 @@ def plot_heatmap_chart(df, cost_series, has_cost, pnav_mu, pnav_std):
     # mu and sigma band lines (panel 2)
     pnav_max = df['pnav_smooth'].max()
     band_lines = [
-        (pnav_mu + 2*pnav_std, '+2s', GREEN_LIT, 'dot'),
-        (pnav_mu + 1*pnav_std, '+1s', GREEN_LIT, 'dot'),
-        (pnav_mu,              ' mu', MIST,       'dash'),
-        (pnav_mu - 1*pnav_std, '-1s', RED_LIT,   'dot'),
-        (1.0,                  '1x',  STEEL,      'dot'),
+        (pnav_mu + 2*pnav_std, '+2σ', GREEN_LIT, 'dot'),
+        (pnav_mu + 1*pnav_std, '+1σ', GREEN_LIT, 'dot'),
+        (pnav_mu,              'μ',   MIST,       'dash'),
+        (pnav_mu - 1*pnav_std, '−1σ', RED_LIT,   'dot'),
+        (1.0,                  '1×',  MIST,       'dot'),
     ]
     for thresh, label, color, dash in band_lines:
         if 0 < thresh < pnav_max * 1.15:
@@ -573,41 +511,28 @@ def plot_heatmap_chart(df, cost_series, has_cost, pnav_mu, pnav_std):
                 line=dict(color=color, width=0.7, dash=dash),
                 row=2, col=1
             )
+            # labels inside the right edge so they never clip
             fig.add_annotation(
-                x=df.index[-1], y=thresh,
-                text=f'  {label}', showarrow=False, xanchor='left',
-                font=dict(family='Courier New, monospace', size=8, color=color),
+                xref='x domain', x=0.995, y=thresh, yshift=8,
+                text=label, showarrow=False, xanchor='right',
+                font=dict(color=color),
                 row=2, col=1
             )
 
-    # Current value annotation (panel 2)
-    c_now = GREEN_LIT if zscore_now > 0.5 else (RED_LIT if zscore_now < -0.5 else MIST)
-    fig.add_annotation(
-        x=df.index[-1], y=pnav_now,
-        text=f'  {pnav_now:.2f}x ({zscore_now:+.1f}s)',
-        showarrow=False, xanchor='left',
-        font=dict(family='Courier New, monospace', size=9, color=c_now),
-        row=2, col=1
-    )
-
     # ── Layout ──────────────────────────────────────────────
-    cost_note = '' if has_cost else '  (cost unavailable)'
-    subtitle = f'{regime_now}  ·  mNAV: {pnav_now:.2f}x  ·  Z: {zscore_now:+.1f}σ  ·  net of debt & preferred'
-    alphaline_layout(fig, f'MSTR mNAV — Z-Score Heatmap{cost_note}', subtitle=subtitle, height=CHART_HEIGHT)
-    fig.update_layout(
-        bargap=0,
-        showlegend=True,
-        legend=dict(bgcolor='rgba(10,22,40,0.0)', bordercolor='rgba(0,0,0,0)', borderwidth=0,
-                    font=dict(size=9, color=MIST),
-                    orientation='h', x=0.5, xanchor='center',
-                    y=-0.07, yanchor='top', tracegroupgap=0),
-    )
-    fig.update_yaxes(type='log', tickprefix='$', title_text='BTC Price (log)', row=1, col=1)
+    # (latest mNAV / z-score / regime are in the page subtitle)
+    subtitle = (f'<b>mNAV {pnav_now:.2f}×</b> net of debt & preferred  ·  z {sigma(zscore_now, 1)}  ·  '
+                f'{regime_now.title()} regime  ·  BTC ${df["btc_price"].iloc[-1]:,.0f}  ·  {date_long(df.index[-1])}'
+                + ('' if has_cost else '  ·  production cost unavailable'))
+
+    apply_theme(fig)
+    fig.update_layout(bargap=0)
+    fig.update_yaxes(type='log', tickformat='$,.0f', title_text='BTC Price (log)', row=1, col=1)
     fig.update_yaxes(title_text='mNAV (x, net)', ticksuffix='x', row=2, col=1,
                      range=[0, min(df['pnav_smooth'].max() * 1.08, ZSCORE_CAP + 1)])
     fig.update_xaxes(title_text='', row=2, col=1)
 
-    return fig
+    return fig, subtitle
 
 
 # ════════════════════════════════════════════
@@ -617,6 +542,11 @@ if __name__ == '__main__':
     os.makedirs('docs', exist_ok=True)
     print('=== Building MSTR mNAV (net) Z-Score Heatmap + Production Cost ===')
     df, cost_series, has_cost, pnav_mu, pnav_std = build_dataframe()
-    fig = plot_heatmap_chart(df, cost_series, has_cost, pnav_mu, pnav_std)
-    fig.write_html(OUTPUT_PATH, include_plotlyjs='cdn', config={'responsive': True})
+    fig, subtitle = plot_heatmap_chart(df, cost_series, has_cost, pnav_mu, pnav_std)
+    write_chart(fig, OUTPUT_PATH,
+                title='MSTR mNAV',
+                subtitle=subtitle,
+                note=(f'Bars coloured by mNAV z-score · green shading = mNAV ≥ {BULL_THRESH:g}×, '
+                      f'red = ≤ {BEAR_THRESH:g}× · BTC production cost band to {COST_BAND_MULT:g}×'),
+                source=SOURCE, default='5Y', min_plot_height=420)
     print(f'Saved: {OUTPUT_PATH}')
