@@ -33,8 +33,33 @@ manifest = {
     "charts": charts
 }
 
+# Homepage Signal Monitor — embedded here so it ships with manifest.json
+# (already committed by the workflow). Never let it break the manifest.
+try:
+    import sys
+    sys.path.insert(0, os.path.dirname(__file__))
+    import generate_signals
+    _prev = None
+    try:
+        with open(os.path.join(DOCS_DIR, "manifest.json"), encoding="utf-8") as _f:
+            _prev = json.load(_f).get("signals")
+    except Exception:
+        pass
+    _cwd = os.getcwd()
+    os.chdir(os.path.join(DOCS_DIR, ".."))          # generate_signals reads docs/ relative to repo root
+    try:
+        _signals, _failed = generate_signals.build(_prev)
+    finally:
+        os.chdir(_cwd)
+    if len(_signals.get("items", [])) >= 3:
+        manifest["signals"] = _signals
+    elif _prev:
+        manifest["signals"] = _prev
+except Exception as e:
+    print(f"signals skipped: {e}")
+
 out_path = os.path.join(DOCS_DIR, "manifest.json")
-with open(out_path, "w") as f:
-    json.dump(manifest, f, indent=2)
+with open(out_path, "w", encoding="utf-8") as f:
+    json.dump(manifest, f, indent=2, ensure_ascii=False)
 
 print(f"manifest.json written — {len(charts)} charts")
