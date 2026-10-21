@@ -1,6 +1,6 @@
 {
   "updated": "2026-10-21",
-  "count": 23,
+  "count": 25,
   "charts": [
     {
       "file": "btc_copper_gold_bb_squeeze.html",
@@ -53,6 +53,11 @@
       "updated": "2026-10-21"
     },
     {
+      "file": "btc_trend.html",
+      "title": "Btc Trend",
+      "updated": "2026-10-21"
+    },
+    {
       "file": "crypto_breadth.html",
       "title": "Crypto Breadth",
       "updated": "2026-10-21"
@@ -98,6 +103,11 @@
       "updated": "2026-10-21"
     },
     {
+      "file": "eth_trend.html",
+      "title": "Eth Trend",
+      "updated": "2026-10-21"
+    },
+    {
       "file": "eth_tvl_momentum.html",
       "title": "Eth Tvl Momentum",
       "updated": "2026-10-21"
@@ -120,7 +130,7 @@
   ],
   "signals": {
     "asOf": "2026-10-20",
-    "generated": "2026-10-21T18:33Z",
+    "generated": "2026-10-21T19:12Z",
     "items": [
       {
         "id": "btc-risk",
@@ -252,7 +262,7 @@
             ],
             [
               "BMNR · ETH",
-              "0.92×",
+              "0.91×",
               null
             ],
             [
