@@ -27,6 +27,22 @@ import json
 import re
 
 import pandas as pd
+import plotly.graph_objects as go
+
+
+# Plotly skips add_vrect / add_hline / ... on any subplot that has no traces
+# *yet* (exclude_empty_subplots=True). Most scripts add their shading before
+# the traces, so regime shading and threshold lines silently never drew.
+# Every chart script imports this module, so flip the default once here.
+def _shapes_on_empty_subplots(method):
+    def wrapper(self, *args, exclude_empty_subplots=False, **kwargs):
+        return method(self, *args, exclude_empty_subplots=exclude_empty_subplots, **kwargs)
+    wrapper.__doc__ = method.__doc__
+    return wrapper
+
+
+for _m in ('add_vrect', 'add_hrect', 'add_vline', 'add_hline'):
+    setattr(go.Figure, _m, _shapes_on_empty_subplots(getattr(go.Figure, _m)))
 
 # ════════════════════════════════════════════
 # BRAND (see CLAUDE.md)
@@ -431,6 +447,8 @@ _POST_SCRIPT = r"""
       var lo = xa.r2l(xa.range[0]), hi = xa.r2l(xa.range[1]), isLog = fl[ya].type === 'log';
       var e = ext[ya] || (ext[ya] = { min: Infinity, max: -Infinity, log: isLog });
       var isBar = tr.type === 'bar';
+      // areas filled down to zero (or stacked) keep their zero baseline
+      if (!isLog && (tr.stackgroup || tr.fill === 'tozeroy')) e.zero = true;
       cd[i].forEach(function (p) {
         var x = isBar ? p.p : p.x, y;
         if (x == null || x < lo || x > hi) return;
@@ -448,10 +466,16 @@ _POST_SCRIPT = r"""
       var e = ext[ya];
       if (!isFinite(e.min) || !isFinite(e.max)) return;
       var a = e.log ? Math.log10(e.min) : e.min, b = e.log ? Math.log10(e.max) : e.max;
+      if (e.zero && a >= 0) a = 0;
       var pad = (b - a) * 0.06 || (e.log ? 0.05 : Math.abs(a) * 0.05 || 1);
-      upd[ya + '.range'] = [a - pad, b + pad];
+      upd[ya + '.range'] = [e.zero && a === 0 ? 0 : a - pad, b + pad];
       upd[ya + '.autorange'] = false;
-      if (e.log) { upd[ya + '.tickmode'] = 'array'; upd[ya + '.tickvals'] = logTicks(a - pad, b + pad); }
+      if (e.log) {
+        // our own tick values; any hand-set tick labels no longer line up
+        upd[ya + '.tickmode'] = 'array';
+        upd[ya + '.tickvals'] = logTicks(a - pad, b + pad);
+        upd[ya + '.ticktext'] = null;
+      }
     });
     if (Object.keys(upd).length) { busy = true; Plotly.relayout(gd, upd).then(function () { busy = false; }); }
   }
