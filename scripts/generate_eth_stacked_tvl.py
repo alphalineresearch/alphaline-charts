@@ -225,8 +225,8 @@ def plot_eth_vs_stacked_tvl_ath(df):
     fig.add_trace(go.Scatter(
         x=d.index, y=d['rwa_tvl_usd'] / 1e9,
         mode='lines', stackgroup='tvl',
-        fillcolor='rgba(180,142,224,0.55)',
-        line=dict(color='#B48EE0', width=1.4),
+        fillcolor='rgba(236,201,106,0.55)',
+        line=dict(color=GOLD_LIT, width=1.4),
         name='RWA TVL', showlegend=True,
         hovertemplate='%{x|%Y-%m-%d}<br>RWA: $%{y:.1f}B<extra></extra>'
     ), row=2, col=1)
@@ -267,5 +267,6 @@ if __name__ == '__main__':
                 title='Value Secured on Ethereum',
                 subtitle=subtitle,
                 note='ETH price and stacked stablecoin, DeFi and RWA value; dotted lines = running all-time highs',
-                source=SOURCE, default='5Y')
+                source=SOURCE, default='5Y',
+                fit_y=('yaxis2',))   # secured value rescales to the window shown
     print(f'Saved: {OUTPUT_PATH}')

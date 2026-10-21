@@ -202,20 +202,20 @@ def plot_stacked_tvl_mcap(df):
 
     fig.add_trace(go.Scatter(
         x=d.index, y=ratio,
-        mode='lines', line=dict(color='rgba(143,174,230,0.30)', width=0.8),
+        mode='lines', line=dict(color='rgba(143,174,230,0.45)', width=1.0),
         name='Secured / market cap (daily)', showlegend=True,
         hovertemplate='%{x|%Y-%m-%d}<br>Secured / market cap: %{y:.2f}×<extra></extra>'
     ), row=2, col=1)
     fig.add_trace(go.Scatter(
         x=d.index, y=ratio_smooth,
-        mode='lines', name='30-day average', line=dict(color=ETH_BLUE, width=1.8),
+        mode='lines', name='30-day average', line=dict(color='#A9C4F5', width=2.6),
         showlegend=True,
         hovertemplate='%{x|%Y-%m-%d}<br>30-day average: %{y:.2f}×<extra></extra>'
     ), row=2, col=1)
     fig.add_trace(go.Scatter(
         x=d.index, y=record,
-        mode='lines', name='Record (30-day)', line=dict(color=WHITE, width=1.0, dash='dot'),
-        opacity=0.6, showlegend=True,
+        mode='lines', name='Record (30-day)', line=dict(color=WHITE, width=1.2, dash='dot'),
+        opacity=0.75, showlegend=True,
         hovertemplate='%{x|%Y-%m-%d}<br>Record so far: %{y:.2f}×<extra></extra>'
     ), row=2, col=1)
 

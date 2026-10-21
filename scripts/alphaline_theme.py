@@ -474,7 +474,10 @@ def _refit_y(fig, L, fixed_y, fit_y):
             a = 0
         pad = (b - a) * 0.06 or (0.05 if e['log'] else abs(a) * 0.05 or 1)
         pad_lo = pad * 3 if ya in fit_y else pad
-        L[ya].range = [0 if e['zero'] and a == 0 else a - pad_lo, b + pad]
+        lower = 0 if e['zero'] and a == 0 else a - pad_lo
+        if not e['log'] and a >= 0 and lower < 0:
+            lower = 0                                    # never below zero for data that isn't
+        L[ya].range = [lower, b + pad]
         L[ya].autorange = False
 
 
@@ -730,7 +733,9 @@ _POST_SCRIPT = r"""
       var pad = (b - a) * 0.06 || (e.log ? 0.05 : Math.abs(a) * 0.05 || 1);
       // fitted axes get extra room below for labels under the lows
       var padLo = C.fitY.indexOf(ya) >= 0 ? pad * 3 : pad;
-      upd[ya + '.range'] = [e.zero && a === 0 ? 0 : a - padLo, b + pad];
+      var lower = e.zero && a === 0 ? 0 : a - padLo;
+      if (!e.log && a >= 0 && lower < 0) lower = 0;   // never below zero for data that isn't
+      upd[ya + '.range'] = [lower, b + pad];
       upd[ya + '.autorange'] = false;
       if (e.log) {
         // our own tick values; any hand-set tick labels no longer line up
