@@ -22,6 +22,8 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import yfinance as yf
 
+from alphaline_theme import apply_theme, write_chart, pct, date_long
+
 # ─────────────────────────────────────────────
 # CONFIG
 # ─────────────────────────────────────────────
@@ -45,10 +47,7 @@ HALVING_SCHEDULE = [
 # ─────────────────────────────────────────────
 # BRAND COLORS
 # ─────────────────────────────────────────────
-NAVY      = '#0A1628'
-NAVY_MID  = '#102240'
-NAVY_LIT  = '#1A3A6E'
-GOLD      = '#D4A843'
+GOLD     = '#D4A843'
 GOLD_LIT  = '#ECC96A'
 GOLD_DIM  = '#8A6B25'
 WHITE     = '#F8FAFB'
@@ -57,55 +56,9 @@ STEEL     = '#374D61'
 GREEN_LIT = '#2ABF7A'
 RED_LIT   = '#D64444'
 
-CHART_WIDTH  = 1100
-CHART_HEIGHT = 700
-
-
 def hex_to_rgba(h, a=0.35):
     h = h.lstrip('#')
     return f'rgba({int(h[0:2],16)},{int(h[2:4],16)},{int(h[4:6],16)},{a})'
-
-
-# ─────────────────────────────────────────────
-# CHART TEMPLATE
-# ─────────────────────────────────────────────
-def alphaline_layout(fig, title, height=CHART_HEIGHT, subtitle='',
-                     source='alphalineresearch.com  |  Yahoo Finance · mempool.space'):
-    fig.update_layout(
-        template='plotly_dark',
-        paper_bgcolor=NAVY, plot_bgcolor=NAVY_MID,
-        height=height, autosize=True,
-        title=dict(
-            text=(
-                f'<span style="font-family:Georgia,serif; font-size:15px; color:{WHITE};">{title}</span>'
-                f'<br><span style="font-family:Courier New,monospace; font-size:8px; color:{GOLD};">ALPHALINE RESEARCH</span>'
-                + (f'<br><span style="font-family:Courier New,monospace; font-size:9px; color:{MIST};">{subtitle}</span>' if subtitle else '')
-            ),
-            x=0.02, xanchor='left', y=0.985, yanchor='top'
-        ),
-        font=dict(family='Courier New, monospace', color=MIST, size=10),
-        margin=dict(l=40, r=20, t=80, b=95),
-        xaxis=dict(gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5, zeroline=False,
-                   showspikes=True, spikecolor=MIST, spikethickness=1, spikedash='dot'),
-        yaxis=dict(gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5, zeroline=False),
-        hoverlabel=dict(bgcolor=NAVY_MID, bordercolor=GOLD,
-                        font=dict(family='Courier New, monospace', size=11, color=WHITE)),
-        legend=dict(
-            bgcolor='rgba(10,22,40,0.0)', bordercolor='rgba(0,0,0,0)', borderwidth=0,
-            font=dict(size=9, color=MIST),
-            orientation='h', x=0.5, xanchor='center',
-            y=-0.11, yanchor='top',
-            tracegroupgap=0,
-        ),
-        annotations=[
-            dict(text=f'Source: {source}',
-                 xref='paper', yref='paper', x=0.0, y=-0.04,
-                 xanchor='left', yanchor='top',
-                 font=dict(family='Courier New, monospace', size=8, color=STEEL),
-                 showarrow=False),
-        ],
-    )
-    return fig
 
 
 # ─────────────────────────────────────────────
@@ -302,49 +255,19 @@ def plot_cost_momentum(d):
     fig.add_hline(y=0, line_color=WHITE, line_width=0.6,
                   opacity=0.25, row=3, col=1)
 
+    # Latest readings go in the page subtitle (end-of-line labels clipped)
     latest_cost = d['cost_30d'].ffill().iloc[-1]
-    alphaline_layout(
-        fig,
-        'BTC Price + Production Cost Momentum',
-        subtitle=f'Past 30 Days  ·  Cost: ${latest_cost:,.0f}',
-        height=CHART_HEIGHT,
-        source='alphalineresearch.com  |  Yahoo Finance · mempool.space'
-    )
-
-    # ── annotations added AFTER alphaline_layout ──
     latest_btc  = d['btc_price'].iloc[-1]
     btc_30d_ret = (d['btc_price'].iloc[-1] / d['btc_price'].iloc[0] - 1) * 100
-    ret_color   = GREEN_LIT if btc_30d_ret >= 0 else RED_LIT
+    subtitle = (f'<b>BTC ${latest_btc:,.0f}</b>  ·  cost to mine ${latest_cost:,.0f}  ·  past 30 days: '
+                f'BTC {pct(btc_30d_ret)}, cost {pct(cum_final)}  ·  {date_long(d.index[-1])}')
 
-    fig.add_annotation(
-        x=d.index[-1], y=latest_btc,
-        xref='x', yref='y',
-        text=f'  ${latest_btc:,.0f}  ({btc_30d_ret:+.1f}% 30d)',
-        showarrow=False, xanchor='left',
-        font=dict(family='Courier New, monospace', size=10, color=ret_color)
-    )
-    fig.add_annotation(
-        x=d.index[-1], y=cum_final,
-        xref='x3', yref='y3',
-        text=f'  Cost  {cum_final:+.1f}% (30d)',
-        showarrow=False, xanchor='left',
-        font=dict(family='Courier New, monospace', size=10, color=cum_color)
-    )
-
-    fig.layout.shapes = []
-
-    fig.update_layout(
-        showlegend=True,
-    )
-    fig.update_yaxes(title_text='BTC Price ($)',
-                     title_font=dict(size=9, color=MIST), row=1, col=1)
-    fig.update_yaxes(title_text='Daily Cost Δ%',
-                     title_font=dict(size=9, color=MIST), row=2, col=1)
-    fig.update_yaxes(title_text='Cumul. Cost Δ%',
-                     title_font=dict(size=9, color=MIST), row=3, col=1)
-    # Pad x-axis 3 days right so end-of-data annotations aren't clipped
-    fig.update_xaxes(range=[d.index[0], d.index[-1] + pd.Timedelta(days=3)])
-    return fig
+    apply_theme(fig)
+    fig.update_yaxes(title_text='BTC Price ($)', tickformat='$,.0f', row=1, col=1)
+    fig.update_yaxes(title_text='Daily Cost Δ', ticksuffix='%', row=2, col=1)
+    fig.update_yaxes(title_text='Cumulative', ticksuffix='%', row=3, col=1)
+    fig.update_xaxes(range=[d.index[0] - pd.Timedelta(days=0.6), d.index[-1] + pd.Timedelta(days=0.6)])
+    return fig, subtitle
 
 
 # ─────────────────────────────────────────────
@@ -354,6 +277,10 @@ if __name__ == '__main__':
     os.makedirs('docs', exist_ok=True)
     print('=== Building BTC Cost Momentum Chart ===')
     df = build_dataframe()
-    fig = plot_cost_momentum(df)
-    fig.write_html(OUTPUT_PATH, include_plotlyjs='cdn', config={'responsive': True})
+    fig, subtitle = plot_cost_momentum(df)
+    write_chart(fig, OUTPUT_PATH,
+                title='BTC Price & Production Cost Momentum',
+                subtitle=subtitle,
+                note='Past 30 days: daily % change in the cost to mine one BTC, and its cumulative change',
+                source='Yahoo Finance · mempool.space', ranges=False)
     print(f'Saved: {OUTPUT_PATH}')
