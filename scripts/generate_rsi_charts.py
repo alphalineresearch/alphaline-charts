@@ -47,6 +47,7 @@ GOLD      = '#D4A843'
 GOLD_LIT  = '#ECC96A'
 MIST      = '#7A8F9F'
 STEEL     = '#374D61'
+NEUTRAL_DOT = '#7A8F9F'   # mid-range RSI dots: visible on navy, quieter than the signal colours
 ETH_BLUE  = '#8FAEE6'
 AMBER      = '#C87820'
 CORNFLOWER = '#4A9EDB'
@@ -95,14 +96,26 @@ def assign_rsi_colors(pct_series, slope_series):
     colors = []
     for pct, slope in zip(pct_series, slope_series):
         if pd.isna(pct) or pd.isna(slope):
-            colors.append(STEEL)
+            colors.append(NEUTRAL_DOT)
         elif pct <= PCT_RARE_OS:
             colors.append(GREEN_LIT if slope > 0 else CORNFLOWER)
         elif pct >= PCT_RARE_OB:
             colors.append(RED_LIT if slope < 0 else AMBER)
         else:
-            colors.append(STEEL)
+            colors.append(NEUTRAL_DOT)
     return colors
+
+
+def rsi_ticks(rsi_range, lvl_rare_os, lvl_rare_ob):
+    """RSI axis ticks with the rare OS/OB levels labelled on the axis itself
+    (labels inside the plot sat on top of the latest readings)."""
+    marks = {lvl_rare_os: f'<span style="color:{GREEN_LIT}">OS {lvl_rare_os:.0f}</span>',
+             lvl_rare_ob: f'<span style="color:{RED_LIT}">OB {lvl_rare_ob:.0f}</span>'}
+    for v in [rsi_range[0], 30, 50, 70, 90, rsi_range[1]]:
+        if rsi_range[0] <= v <= rsi_range[1] and all(abs(v - m) >= 7 for m in marks):
+            marks[v] = str(v)
+    vals = sorted(marks)
+    return dict(tickmode='array', tickvals=vals, ticktext=[marks[v] for v in vals])
 
 # ════════════════════════════════════════════
 # DATA FETCHER
@@ -193,18 +206,12 @@ def plot_price_rsi(df: pd.DataFrame, ticker: str, price_color: str, rsi_range=No
     ]:
         if rsi_range[0] <= level <= rsi_range[1]:
             fig.add_hline(y=level, line_dash=dash, line_color=color, line_width=0.8, row=2, col=1)
-            fig.add_annotation(
-                xref='x domain', x=0.995, y=level, yshift=8,
-                text=label, showarrow=False, xanchor='right',
-                font=dict(color=color),
-                row=2, col=1
-            )
 
     # ── RSI(14) thin background line + colored dots ────────────────
     fig.add_trace(go.Scatter(
         x=d.index, y=d['rsi'],
         mode='lines', name='RSI(14)',
-        line=dict(color=MIST, width=0.8), opacity=0.35,
+        line=dict(color=MIST, width=0.8), opacity=0.5,
         showlegend=True, hoverinfo='skip'
     ), row=2, col=1)
 
@@ -234,7 +241,7 @@ def plot_price_rsi(df: pd.DataFrame, ticker: str, price_color: str, rsi_range=No
     apply_theme(fig)
     fig.update_yaxes(type='log', tickformat='$,.0f', title_text='Price (log)', row=1, col=1)
     fig.update_yaxes(title_text='RSI(14)', range=rsi_range,
-                     tickvals=[20, 30, 50, 70, 80, 90, 100], row=2, col=1)
+                     **rsi_ticks(rsi_range, lvl_rare_os, lvl_rare_ob), row=2, col=1)
     fig.update_xaxes(rangeslider_visible=False)
 
     return fig, regime_label, subtitle
@@ -305,18 +312,12 @@ def plot_annual_rsi(df: pd.DataFrame, ticker: str, price_color: str, rsi_range=N
     ]:
         if rsi_range[0] <= level <= rsi_range[1]:
             fig.add_hline(y=level, line_dash=dash, line_color=color, line_width=0.8, row=2, col=1)
-            fig.add_annotation(
-                xref='x domain', x=0.995, y=level, yshift=8,
-                text=label, showarrow=False, xanchor='right',
-                font=dict(color=color),
-                row=2, col=1
-            )
 
     # ── RSI(52) thin line + colored dots ──────────────────────────
     fig.add_trace(go.Scatter(
         x=d.index, y=d['rsi_1yr'],
         mode='lines', name='RSI(52)',
-        line=dict(color=MIST, width=0.8), opacity=0.35,
+        line=dict(color=MIST, width=0.8), opacity=0.5,
         showlegend=True, hoverinfo='skip'
     ), row=2, col=1)
 
@@ -346,7 +347,7 @@ def plot_annual_rsi(df: pd.DataFrame, ticker: str, price_color: str, rsi_range=N
     apply_theme(fig)
     fig.update_yaxes(type='log', tickformat='$,.0f', title_text='Price (log)', row=1, col=1)
     fig.update_yaxes(title_text='RSI(52)', range=rsi_range,
-                     tickvals=[20, 30, 50, 70, 80, 90, 100], row=2, col=1)
+                     **rsi_ticks(rsi_range, lvl_rare_os, lvl_rare_ob), row=2, col=1)
     fig.update_xaxes(rangeslider_visible=False)
 
     return fig, regime_label, subtitle
