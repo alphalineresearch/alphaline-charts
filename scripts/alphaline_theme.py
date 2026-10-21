@@ -114,6 +114,7 @@ def date_long(ts):
 # LAYOUT
 # ════════════════════════════════════════════
 _OLD_HOVER_DATE = re.compile(r'%\{x\|%Y-%m-%d\}(<br>|\s*\|\s*|\s+)')
+_OTHER_DATE_BR  = re.compile(r'(%\{x\|[^}]*\})<br>')      # e.g. monthly '%b %Y'
 _HOVER_COLON    = re.compile(r':\s+(?=\$?%\{)')
 
 
@@ -121,6 +122,7 @@ def _restyle_hover(tpl):
     if not tpl or not isinstance(tpl, str):
         return tpl
     tpl = _OLD_HOVER_DATE.sub(HOVER_DATE + ' · ', tpl)
+    tpl = _OTHER_DATE_BR.sub(r'\1 · ', tpl)
     return _HOVER_COLON.sub(' ', tpl)
 
 
