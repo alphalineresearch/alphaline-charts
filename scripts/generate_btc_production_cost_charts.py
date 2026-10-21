@@ -569,7 +569,7 @@ def plot_risk_score_history(sig, score_now):
 
     for _x0, _x1, (_col, _lbl) in _segments:
         fig.add_vrect(x0=_x0, x1=_x1,
-                      fillcolor=hex_to_rgba(_col, 0.20), line_width=0,
+                      fillcolor=hex_to_rgba(_col, 0.14), line_width=0,
                       row=1, col=1)
 
     # Score threshold lines
