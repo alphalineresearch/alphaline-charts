@@ -29,7 +29,7 @@ from scipy.stats import linregress
 from datetime import datetime, timedelta
 import yfinance as yf
 
-from alphaline_theme import apply_theme, write_chart, pct, date_long
+from alphaline_theme import apply_theme, write_chart, pct, date_long, TEXT_2
 
 warnings.filterwarnings('ignore')
 try:
@@ -609,11 +609,6 @@ def plot_risk_score_history(sig, score_now):
     fig.add_vline(x=today_dt.timestamp() * 1000,
                   line_color=hex_to_rgba(WHITE, 0.25), line_width=0.8, line_dash='dot',
                   row=1, col=1)
-    fig.add_annotation(
-        x=today_dt, y=score_now + 5, xref='x', yref='y',
-        text=f'  {score_now:.0f}', showarrow=False,
-        font=dict(family='Courier New, monospace', size=9, color=GOLD_LIT), xanchor='left'
-    )
 
     # Recency legend dummy traces
     _days_now  = days_since(today_dt)
@@ -672,15 +667,14 @@ def plot_risk_score_history(sig, score_now):
                   line_color=hex_to_rgba(WHITE, 0.25), line_width=0.8, line_dash='dot',
                   row=2, col=1)
 
-    # Zone labels
-    for y_mid, label, color in [(ZONE_LOW / 2, 'RISK OFF', RED_LIT),
-                                (ZONE_LOW + (SIGNAL_THRESHOLD - ZONE_LOW) / 2, 'NEUTRAL', GOLD),
-                                (SIGNAL_THRESHOLD + 8, 'FAVOURABLE', GREEN_LIT)]:
-        fig.add_annotation(
-            xref='paper', x=0.995, yref='y', y=y_mid, text=label, showarrow=False,
-            font=dict(family='Courier New, monospace', size=8, color=color),
-            xanchor='right', opacity=0.55
-        )
+    # Zone key, in the top of the score panel (the score has never reached 70)
+    fig.add_annotation(
+        xref='x domain', x=0.005, yref='y', y=96, xanchor='left', yanchor='top',
+        text=(f'<span style="color:{RED_LIT}">RISK OFF</span> &lt;{ZONE_LOW} · '
+              f'<span style="color:{GOLD}">NEUTRAL</span> {ZONE_LOW}–{SIGNAL_THRESHOLD} · '
+              f'<span style="color:{GREEN_LIT}">FAVOURABLE</span> {SIGNAL_THRESHOLD}+'),
+        showarrow=False, font=dict(color=TEXT_2),
+    )
 
     fig.update_yaxes(title_text='Signal Score  (0–100)', range=[0, 100],
                      title_font=dict(size=11), zeroline=False, row=1, col=1)
@@ -732,10 +726,9 @@ def plot_risk_score_recency(sig):
     fig.add_hline(y=SIGNAL_THRESHOLD, line_color=hex_to_rgba(WHITE, 0.35),
                   line_width=0.8, line_dash='dot', row=1, col=1)
     fig.add_annotation(
-        xref='paper', x=0.995, yref='y', y=SIGNAL_THRESHOLD + 2,
-        text=f'Signal threshold ({SIGNAL_THRESHOLD})', showarrow=False,
-        font=dict(family='Courier New, monospace', size=8, color=hex_to_rgba(WHITE, 0.50)),
-        xanchor='right'
+        xref='x domain', x=0.005, yref='y', y=96, xanchor='left', yanchor='top',
+        text=f'Signal fires at {SIGNAL_THRESHOLD}+ (dotted line)', showarrow=False,
+        font=dict(color=TEXT_2),
     )
 
     # Halving vlines
@@ -890,10 +883,19 @@ if __name__ == '__main__':
     # Live readings for the chart subtitles
     _last_px, _last_day = btc_px.iloc[-1], btc_px.index[-1]
     _cost_now = hist_cost_30d.reindex(btc_px.index, method='ffill').iloc[-1]
-    _fired = sig.index[sig['score'] >= SIGNAL_THRESHOLD]
-    _signal = (f'signal {"on" if score_now >= SIGNAL_THRESHOLD else "off"} (fires at {SIGNAL_THRESHOLD}+)'
-               + (f' · last at {SIGNAL_THRESHOLD}+ on {date_long(_fired[-1])}' if len(_fired) else ''))
-    _sub_score = f'<b>Score {score_now:.0f}</b>/100 · {_signal}'
+    # Same reading as the homepage tile (generate_signals.tile_btc_signal):
+    # the plotted 14-day average, not the live spot score
+    _smooth = sig['score'].rolling(14, center=True, min_periods=7).mean().dropna()
+    _now = float(_smooth.iloc[-1])
+    if _now >= SIGNAL_THRESHOLD:
+        _below = _smooth[_smooth < SIGNAL_THRESHOLD]
+        _run_start = _smooth.loc[_below.index[-1]:].index[1] if len(_below) else _smooth.index[0]
+        _when = f'on since {date_long(_run_start)}'
+    else:
+        _fired = _smooth[_smooth >= SIGNAL_THRESHOLD]
+        _when = f'last on {date_long(_fired.index[-1])}' if len(_fired) else 'not triggered yet'
+    _signal = f'signal {"on" if _now >= SIGNAL_THRESHOLD else "off"} · fires at {SIGNAL_THRESHOLD}+ · {_when}'
+    _sub_score = f'<b>Score {_now:.0f}</b>/100 · {_signal}'
 
     # Chart 5
     print('\n--- Chart 5: BTC Price vs Production Cost ---')
@@ -933,7 +935,7 @@ if __name__ == '__main__':
     fig7c = plot_mstr_signal_recency(sig, mstr_px)
     write_chart(fig7c, OUTPUT_MSTR,
                 title='MSTR vs. BTC Opportunity Signal',
-                subtitle=f'<b>MSTR ${mstr_px.iloc[-1]:,.2f}</b> · BTC score {score_now:.0f}/100 · {_signal}',
+                subtitle=f'<b>MSTR ${mstr_px.iloc[-1]:,.2f}</b> · BTC score {_now:.0f}/100 · {_signal}',
                 note=f'BTC signal windows (score ≥ {SIGNAL_THRESHOLD}) mapped onto the MSTR share price',
                 source=SOURCE, default='5Y', end=mstr_px.index[-1], min_plot_height=420)
     print(f'Saved: {OUTPUT_MSTR}')
