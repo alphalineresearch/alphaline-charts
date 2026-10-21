@@ -385,6 +385,7 @@ h1 { margin: 0 0 4px; font-family: 'Cormorant Garamond', Georgia, serif; font-we
 .al-legend button.off span { text-decoration: line-through; }
 .al-legend i { flex: 0 0 auto; display: inline-block; width: 18px; height: 0; border-top: 2px solid; }
 .al-legend i.box { width: 11px; height: 11px; border: 0; }
+.al-legend i.glyph { width: auto; height: auto; border: 0; font-style: normal; font-size: 11px; line-height: 1; }
 .al-foot { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center;
            gap: 2px 16px; padding: 4px 20px 10px; font-size: 12px; color: var(--t3); }
 .al-mark { display: inline-flex; align-items: center; gap: 7px; color: var(--gold); text-decoration: none;
@@ -526,10 +527,17 @@ _POST_SCRIPT = r"""
       var b = document.createElement('button'), sw = document.createElement('i'), t = document.createElement('span');
       b.type = 'button';
       var fill = tr.fill && tr.fill !== 'none', mk = tr.mode && tr.mode.indexOf('lines') < 0;
-      if (fill || mk || tr.type === 'bar') {
+      var sym = mk && tr.marker && String(tr.marker.symbol || '');
+      if (sym && /triangle-(up|down)/.test(sym)) {
+        // marker series: show the actual glyph (colours can vary per point)
+        var mc = tr.marker.color;
+        sw.className = 'glyph';
+        sw.textContent = sym.indexOf('down') >= 0 ? '▼' : '▲';
+        sw.style.color = typeof mc === 'string' ? mc : (mc && mc[0]) || '#8FA2B2';
+      } else if (fill || mk || tr.type === 'bar') {
         sw.className = 'box';
         var c = fill ? tr.fillcolor : tr.marker && tr.marker.color;
-        sw.style.background = typeof c === 'string' ? c : '#8FA2B2';
+        sw.style.background = typeof c === 'string' ? c : (c && typeof c[0] === 'string' ? c[0] : '#8FA2B2');
       } else {
         sw.style.borderTopColor = tr.line && tr.line.color || '#8FA2B2';
         if (tr.line && tr.line.dash && tr.line.dash !== 'solid') sw.style.borderTopStyle = tr.line.dash === 'dot' ? 'dotted' : 'dashed';
