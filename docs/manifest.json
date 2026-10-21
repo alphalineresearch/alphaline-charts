@@ -120,7 +120,7 @@
   ],
   "signals": {
     "asOf": "2026-10-20",
-    "generated": "2026-10-21T18:17Z",
+    "generated": "2026-10-21T18:33Z",
     "items": [
       {
         "id": "btc-risk",
@@ -129,7 +129,7 @@
         "unit": "",
         "state": "",
         "color": "#2ABF7A",
-        "sub": "Score 41 · fires at 40+ · on since Oct 18, 2026",
+        "sub": "Score 41 · fires at 40+ · on since Oct 20, 2026",
         "viz": {
           "type": "recency",
           "bucket": 0
@@ -151,12 +151,12 @@
         "unit": "",
         "state": "Above cost",
         "color": "#8FA2B2",
-        "sub": "$82,941 price vs. $63,854 cost to mine",
+        "sub": "$82,941 price vs. $63,742 cost to mine",
         "viz": {
           "type": "scale",
           "min": -50,
           "max": 150,
-          "v": 29.9,
+          "v": 30.1,
           "zones": [
             [
               -50,
@@ -247,7 +247,7 @@
             ],
             [
               "ASST · BTC",
-              "1.86×",
+              "1.85×",
               null
             ],
             [
@@ -431,8 +431,8 @@
               27.95,
               28.3,
               34.9,
-              38.61,
-              41.32
+              38.35,
+              40.85
             ]
           }
         ]
@@ -446,7 +446,7 @@
         "ymin": null,
         "ymax": null,
         "ref": [],
-        "note": "$82,941 price vs. $63,854 cost",
+        "note": "$82,941 price vs. $63,742 cost",
         "start": "2023-10",
         "series": [
           {
@@ -758,7 +758,7 @@
               60940.0,
               61500.0,
               62460.0,
-              63850.0
+              63740.0
             ]
           }
         ]
@@ -1599,7 +1599,7 @@
           30,
           70
         ],
-        "note": "RSI 59",
+        "note": "RSI 60",
         "start": "2023-10",
         "series": [
           {
@@ -1755,7 +1755,7 @@
               63.22,
               59.37,
               57.15,
-              59.14
+              59.76
             ]
           }
         ]
