@@ -19,14 +19,24 @@ HTML header (title, live reading, range buttons) → Plotly chart → legend →
 HTML footer (Alphaline mark + source). Inside an iframe the title is hidden,
 because the website shows its own.
 
+write_chart also saves docs/thumbs/<stem>.webp — the bare plot in the window
+the page opens on — for the homepage chart cards.
+
 Styling only: nothing here touches data, trace names or output file names.
 """
 
 import html
+import io
 import json
+import math
+import os
+import pathlib
 import re
+import subprocess
+import tempfile
 
 import pandas as pd
+import plotly
 import plotly.graph_objects as go
 
 
@@ -287,6 +297,8 @@ def write_chart(fig, path, *, title, subtitle='', note='', source='',
     with open(path, 'w', encoding='utf-8') as fh:
         fh.write(page)
 
+    _write_thumb(fig, path, fixed_y, fit_y)
+
 
 def _window(name, end):
     end = pd.Timestamp(end)
@@ -295,6 +307,248 @@ def _window(name, end):
     else:
         start = end - pd.DateOffset(years=int(name[:-1]))
     return start, end + (end - start) * 0.03
+
+
+# ════════════════════════════════════════════
+# THUMBNAIL (homepage chart cards)
+# ════════════════════════════════════════════
+THUMB_W, THUMB_H = 960, 540
+THUMB_QUALITY    = 80
+THUMB_MAX_BYTES  = 60_000
+THUMB_GAP        = 8          # px: outer margin and the space between panels
+
+_kaleido_ok = True            # set False after the first failure; later charts go straight to Chrome
+
+
+def _write_thumb(fig, path, fixed_y, fit_y):
+    """docs/thumbs/<stem>.webp: the plot alone, in the window the page opens on.
+    Best effort: a failed thumbnail never stops a chart build."""
+    stem = os.path.splitext(os.path.basename(path))[0]
+    out = os.path.join(os.path.dirname(os.path.abspath(path)), 'thumbs', stem + '.webp')
+    try:
+        png = _render_png(_thumb_figure(fig, fixed_y, fit_y))
+        os.makedirs(os.path.dirname(out), exist_ok=True)
+        _save_webp(png, out)
+    except Exception as e:  # noqa: BLE001
+        print(f'  ! thumbnail skipped for {stem}: {e}')
+
+
+def _thumb_figure(fig, fixed_y, fit_y):
+    """A copy of the page's figure with the small print stripped."""
+    t = go.Figure(fig.to_dict())          # deep copy: the page's figure is never touched
+    _refit_y(fig, t.layout, fixed_y, fit_y)
+    L = t.layout
+    # assigned, not update()d: update() merges lists item by item, so [] would keep them all
+    L.annotations, L.images, L.updatemenus, L.sliders = (), (), (), ()
+    L.update(title=None, showlegend=False, paper_bgcolor=NAVY, plot_bgcolor=NAVY_MID,
+             width=THUMB_W, height=THUMB_H,
+             margin=dict(l=THUMB_GAP, r=THUMB_GAP, t=THUMB_GAP, b=THUMB_GAP, pad=0, autoexpand=False))
+    x_keys, y_keys = _axis_keys(t, 'xaxis'), _axis_keys(t, 'yaxis')
+    for k in x_keys + y_keys:
+        L[k].update(title_text=None, showticklabels=False, ticks='', automargin=False, gridcolor=GRID)
+    for k in x_keys:
+        L[k].update(rangeslider_visible=False, rangeselector_visible=False)
+    for k in L.to_plotly_json():
+        if re.fullmatch(r'coloraxis\d*', k):
+            L[k].showscale = False
+    for s in L.shapes or []:
+        if s.label and s.label.text:
+            s.label.text = None
+
+    for tr in t.data:
+        if 'showscale' in tr:              # heatmap colour bar
+            tr.showscale = False
+        if 'marker' in tr and 'showscale' in tr.marker:
+            tr.marker.showscale = False
+        if tr.type in ('scatter', 'scattergl') and tr.mode and 'text' in tr.mode:
+            modes = [m for m in tr.mode.split('+') if m != 'text']
+            if modes:
+                tr.mode = '+'.join(modes)
+            else:
+                tr.visible = False
+        if tr.type == 'bar':
+            tr.textposition = 'none'
+        if tr.type == 'heatmap':
+            tr.texttemplate = None
+
+    # One column of panels: run it full width (the room kept for right-hand
+    # axis labels or a colour bar is empty now)
+    if len({tuple(L[k].domain) if L[k].domain else (0.0, 1.0) for k in x_keys}) == 1:
+        for k in x_keys:
+            L[k].domain = [0, 1]
+
+    # Panels: same proportions, THUMB_GAP px apart, filling the frame
+    panels = {}
+    for k in y_keys:
+        if not L[k].overlaying:
+            panels.setdefault(tuple(L[k].domain) if L[k].domain else (0.0, 1.0), []).append(k)
+    if len(panels) > 1:
+        gap = THUMB_GAP / (THUMB_H - 2 * THUMB_GAP)
+        spans = sorted(panels)
+        scale = (1 - gap * (len(spans) - 1)) / sum(b - a for a, b in spans)
+        y0 = 0.0
+        for a, b in spans:
+            y1 = min(y0 + (b - a) * scale, 1.0)
+            for k in panels[(a, b)]:
+                L[k].domain = [y0, y1]
+            y0 = y1 + gap
+    return t
+
+
+def _refit_y(fig, L, fixed_y, fit_y):
+    """Python twin of refit() in _POST_SCRIPT: fit each auto y axis to the data
+    inside the x window, as the page does when it opens. Reads fig (whose
+    arrays are still numpy, not plotly 6's base64 copies), writes to layout L."""
+    barmode = L.barmode or 'group'
+    ext, stacks = {}, {}
+    for tr in fig.data:
+        if tr.visible not in (None, True) or tr.type not in ('scatter', 'scattergl', 'bar'):
+            continue
+        if tr.y is None or (tr.type == 'bar' and tr.orientation == 'h'):
+            continue
+        ya = 'yaxis' + (tr.yaxis or 'y')[1:]
+        xa = 'xaxis' + (tr.xaxis or 'x')[1:]
+        if ya in fixed_y or L[ya].type == 'category':
+            continue
+        is_log = L[ya].type == 'log'
+
+        y = pd.to_numeric(pd.Series(list(tr.y)), errors='coerce').to_numpy(dtype=float)
+        x = pd.to_datetime(pd.Series(list(tr.x) if tr.x is not None else range(len(y))),
+                           errors='coerce')
+        base = [0.0] * len(y)
+        is_bar = tr.type == 'bar'
+        stackgroup = None if is_bar else getattr(tr, 'stackgroup', None)
+
+        # stacked areas / bars: the drawn top is the running total
+        if stackgroup:
+            key = ('s', stackgroup, xa, ya)
+        elif is_bar and barmode in ('stack', 'relative') and tr.base is None:
+            key = ('b', xa, ya)
+        else:
+            key = None
+        if key is not None:
+            idx = pd.Index(x)
+            if key[0] == 's' or barmode == 'stack':
+                prev = stacks.get(key)
+                if prev is not None:
+                    base = prev.reindex(idx).fillna(0).to_numpy()
+                stacks[key] = (prev if prev is not None else pd.Series(dtype=float)).add(
+                    pd.Series(y, index=idx).groupby(level=0).sum(), fill_value=0)
+            else:   # relative: positives stack up, negatives down
+                pos, neg = stacks.get(key, (pd.Series(dtype=float), pd.Series(dtype=float)))
+                up = pos.reindex(idx).fillna(0).to_numpy()
+                dn = neg.reindex(idx).fillna(0).to_numpy()
+                base = [u if v >= 0 else d for v, u, d in zip(y, up, dn)]
+                s = pd.Series(y, index=idx)
+                stacks[key] = (pos.add(s.clip(lower=0).groupby(level=0).sum(), fill_value=0),
+                               neg.add(s.clip(upper=0).groupby(level=0).sum(), fill_value=0))
+            top = [b + v for b, v in zip(base, y)]
+        else:
+            top = list(y)
+
+        lo = hi = None
+        rng = L[xa].range
+        if rng is not None:
+            try:
+                lo, hi = pd.Timestamp(rng[0]), pd.Timestamp(rng[1])
+            except (TypeError, ValueError):
+                pass
+
+        e = ext.setdefault(ya, dict(min=math.inf, max=-math.inf, log=is_log, zero=False))
+        if not is_log and not is_bar and (stackgroup or tr.fill == 'tozeroy') and ya not in fit_y:
+            e['zero'] = True
+        for xi, b, v in zip(x, base, top):
+            if lo is not None and not pd.isna(xi) and (xi < lo or xi > hi):
+                continue
+            if is_bar and not is_log:
+                e['min'], e['max'] = min(e['min'], b), max(e['max'], b)
+            if v is None or not math.isfinite(v) or (is_log and v <= 0):
+                continue
+            e['min'], e['max'] = min(e['min'], v), max(e['max'], v)
+
+    for ya, e in ext.items():
+        if not (math.isfinite(e['min']) and math.isfinite(e['max'])):
+            continue
+        a, b = (math.log10(e['min']), math.log10(e['max'])) if e['log'] else (e['min'], e['max'])
+        if e['zero'] and a >= 0:
+            a = 0
+        pad = (b - a) * 0.06 or (0.05 if e['log'] else abs(a) * 0.05 or 1)
+        pad_lo = pad * 3 if ya in fit_y else pad
+        L[ya].range = [0 if e['zero'] and a == 0 else a - pad_lo, b + pad]
+        L[ya].autorange = False
+
+
+def _render_png(fig):
+    """kaleido first (as on GitHub Actions); if it can't drive Chrome on this
+    machine, take a plain headless-Chrome screenshot instead."""
+    global _kaleido_ok
+    if _kaleido_ok:
+        try:
+            return fig.to_image(format='png', width=THUMB_W, height=THUMB_H, scale=1)
+        except Exception:  # noqa: BLE001
+            _kaleido_ok = False
+    return _chrome_png(fig)
+
+
+_THUMB_PAGE = """<!DOCTYPE html><html><head><meta charset="utf-8"><script src="__JS__"></script>
+<style>html,body{margin:0;background:#0A1628;overflow:hidden}</style></head>
+<body><div id="g" style="width:__W__px;height:__H__px"></div>
+<script>var f=__FIG__;Plotly.newPlot('g',f.data,f.layout,{staticPlot:true});</script></body></html>"""
+
+
+def _chrome_png(fig):
+    from choreographer.browsers.chromium import Chromium     # installed with kaleido
+    exe = Chromium.find_browser(skip_local=False)
+    if not exe:
+        raise RuntimeError('kaleido failed and no Chrome found')
+    js = pathlib.Path(plotly.__file__).parent / 'package_data' / 'plotly.min.js'
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
+        page, shot = pathlib.Path(tmp, 'thumb.html'), pathlib.Path(tmp, 'thumb.png')
+        page.write_text(_THUMB_PAGE.replace('__JS__', js.as_uri())
+                        .replace('__W__', str(THUMB_W)).replace('__H__', str(THUMB_H))
+                        .replace('__FIG__', fig.to_json().replace('</', '<\\/')), encoding='utf-8')
+        for attempt in range(5):            # Chrome on Windows sometimes quits at start-up
+            _run_detached([exe, '--headless', '--disable-gpu', '--no-sandbox', '--hide-scrollbars',
+                           '--allow-file-access-from-files', '--force-device-scale-factor=1',
+                           f'--user-data-dir={pathlib.Path(tmp, f"profile{attempt}")}',
+                           f'--window-size={THUMB_W},{THUMB_H + 200}', '--virtual-time-budget=10000',
+                           f'--screenshot={shot}', page.as_uri()])
+            if shot.exists():
+                break
+        else:
+            raise RuntimeError('headless Chrome produced no screenshot')
+        # the window is taller than its viewport on Windows, so shoot tall and keep the plot
+        from PIL import Image
+        buf = io.BytesIO()
+        Image.open(shot).crop((0, 0, THUMB_W, THUMB_H)).save(buf, 'PNG')
+        return buf.getvalue()
+
+
+def _run_detached(cmd):
+    # On Windows, headless Chrome quits silently when started inside a job
+    # object (some terminals and IDEs run one), so break away from it if allowed.
+    kw = dict(stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+              timeout=120, check=False)
+    if os.name == 'nt':
+        try:
+            return subprocess.run(cmd, creationflags=0x01000000, **kw)   # CREATE_BREAKAWAY_FROM_JOB
+        except OSError:
+            pass
+    return subprocess.run(cmd, **kw)
+
+
+def _save_webp(png, out):
+    from PIL import Image
+    img = Image.open(io.BytesIO(png)).convert('RGB')
+    if img.size != (THUMB_W, THUMB_H):
+        img = img.resize((THUMB_W, THUMB_H), Image.LANCZOS)
+    for q in (THUMB_QUALITY, 70, 60, 50):       # step down only if a busy chart runs over budget
+        buf = io.BytesIO()
+        img.save(buf, 'WEBP', quality=q, method=6)
+        if buf.tell() <= THUMB_MAX_BYTES:
+            break
+    with open(out, 'wb') as fh:
+        fh.write(buf.getvalue())
 
 
 # ════════════════════════════════════════════

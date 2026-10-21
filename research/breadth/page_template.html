@@ -1,0 +1,418 @@
+<title>Crypto Market Breadth</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: a research note. One ~68ch reading column; charts and tables break out to a wider measure. Alphaline's navy/gold, dark by design. */
+:root {
+  color-scheme: dark;
+  --navy: #0A1628;
+  --panel: #0F1F35;
+  --rule: #22364D;
+  --text: #E8EDF1;
+  --text-2: #B4C2CD;
+  --text-3: #8FA2B2;
+  --gold: #D4A843;
+  --gold-lit: #ECC96A;
+  --good: #2ABF7A;
+  --bad: #E86A6A;
+  --steel: #7A8F9F;
+  --display: 'Cormorant Garamond', 'Iowan Old Style', Georgia, serif;
+  --body: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, Consolas, monospace;
+  --measure: 68ch;
+  --wide: 1040px;
+}
+* { box-sizing: border-box; }
+body { background: var(--navy); color: var(--text); font: 16px/1.65 var(--body); margin: 0; }
+.page { padding-inline: 20px; padding-block: 48px 80px; display: flex; flex-direction: column; align-items: center; gap: 0; }
+.col { width: 100%; max-width: var(--measure); }
+.wide { width: 100%; max-width: var(--wide); }
+.eyebrow { font: 500 12px/1 var(--body); letter-spacing: .14em; text-transform: uppercase; color: var(--gold); display: flex; gap: 10px; align-items: center; }
+.eyebrow i { width: 10px; height: 10px; background: var(--gold); display: inline-block; }
+h1 { font: 600 clamp(40px, 6vw, 60px)/1.02 var(--display); margin: 18px 0 14px; text-wrap: balance; letter-spacing: -.01em; }
+h2 { font: 600 30px/1.15 var(--display); margin: 56px 0 10px; text-wrap: balance; }
+h3 { font: 600 13px/1.3 var(--body); letter-spacing: .1em; text-transform: uppercase; color: var(--text-3); margin: 28px 0 8px; }
+p { margin: 0 0 14px; color: var(--text-2); }
+p strong, li strong { color: var(--text); font-weight: 600; }
+.dek { font-size: 19px; line-height: 1.55; color: var(--text-2); }
+.meta { font: 13px/1.5 var(--body); color: var(--text-3); margin-top: 10px; }
+.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+/* Findings */
+.findings { list-style: none; padding: 0; margin: 28px 0 0; display: grid; gap: 0; border-top: 1px solid var(--rule); }
+.findings li { display: grid; grid-template-columns: 7.5rem 1fr; gap: 18px; padding: 16px 0; border-bottom: 1px solid var(--rule); }
+.findings .t { color: var(--text-2); min-width: 0; }
+.chip { align-self: start; font: 600 11px/1 var(--body); letter-spacing: .08em; text-transform: uppercase; padding: 6px 8px; border: 1px solid currentColor; text-align: center; }
+.chip.no { color: var(--text-3); }
+.chip.mod { color: var(--gold-lit); }
+.chip.strong { color: var(--good); }
+.chip.watch { color: var(--bad); }
+
+/* Charts */
+figure { margin: 28px 0 8px; }
+.chart { width: 100%; height: 420px; background: var(--panel); border: 1px solid var(--rule); }
+.chart.tall { height: 520px; }
+figcaption { font-size: 13px; line-height: 1.5; color: var(--text-3); margin-top: 10px; max-width: var(--measure); }
+
+/* Tables */
+.tbl { overflow-x: auto; margin: 14px 0 22px; border: 1px solid var(--rule); background: var(--panel); }
+table { border-collapse: collapse; width: 100%; min-width: 560px; font-size: 14px; }
+th, td { padding: 9px 12px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--rule); }
+th { font: 600 11px/1.3 var(--body); letter-spacing: .08em; text-transform: uppercase; color: var(--text-3); }
+th:first-child, td:first-child { text-align: left; }
+td:first-child { font-family: var(--body); }
+td { font-family: var(--mono); font-variant-numeric: tabular-nums; color: var(--text-2); }
+tr.sum td { color: var(--text); font-weight: 500; background: rgba(212,168,67,.06); }
+tr.base td { color: var(--text-3); }
+td.pos { color: var(--good); }
+td.neg { color: var(--bad); }
+
+/* Now box */
+.now { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1px; background: var(--rule); border: 1px solid var(--rule); margin: 22px 0 10px; }
+.now div { background: var(--panel); padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; }
+.now b { font: 500 26px/1.1 var(--mono); color: var(--text); font-variant-numeric: tabular-nums; }
+.now span { font-size: 12px; color: var(--text-3); line-height: 1.35; }
+
+ul.plain { padding-left: 1.1em; margin: 0 0 14px; color: var(--text-2); }
+ul.plain li { margin-bottom: 8px; }
+.note { border-left: 2px solid var(--gold); padding: 4px 0 4px 16px; margin: 18px 0; }
+footer { margin-top: 64px; padding-top: 18px; border-top: 1px solid var(--rule); font-size: 13px; color: var(--text-3); }
+a { color: var(--gold-lit); }
+@media (max-width: 560px) {
+  .findings li { grid-template-columns: 1fr; gap: 8px; }
+  .chip { justify-self: start; }
+  .chart { height: 360px; }
+  .chart.tall { height: 460px; }
+}
+</style>
+
+<div class="page">
+  <header class="col">
+    <div class="eyebrow"><i></i>Alphaline Research · working note</div>
+    <h1>Crypto Market Breadth</h1>
+    <p class="dek">Does the share of coins in uptrends tell us anything about where BTC and ETH go next? Tested on weekly top-100 snapshots from January 2016 to October 2026, including every coin that later died.</p>
+    <p class="meta">__WEEKS__ weeks · __COINS__ coins seen across all snapshots · stablecoins, wrapped and staked copies, and tokenized stocks removed · data as of __ASOF__</p>
+
+    <ul class="findings">
+      <li><span class="chip no">No edge</span><span class="t"><strong>Breadth does not time BTC or ETH.</strong> Strong breadth was followed by better BTC returns in 2016–20, but the link disappeared in 2021–26. Correlation with the next 13 weeks of BTC fell from +0.33 to +0.01.</span></li>
+      <li><span class="chip mod">Cycle gauge</span><span class="t"><strong>Long averages work the other way round.</strong> Measured against 100- and 200-week averages, breadth has been contrarian for the next year: few coins above their average meant a strong year ahead, most above meant a weak one. The 100-week version adds nothing beyond BTC's own price against its 100-week average. The 200-week version does, but it only covers one cycle, from late 2020.</span></li>
+      <li><span class="chip watch">Now</span><span class="t"><strong>Short-term strong, long-term weak.</strong> 60%+ of coins above their 30-week average while 25% or fewer are above their 100-week average has happened 4 times before: April 2019, February 2020, January 2023 and November 2023. BTC was higher a year later every time, by +31% to +254%, at every threshold nearby, though with drawdowns of up to 53% along the way and only three cycles behind it. The current episode began in August 2026.</span></li>
+      <li><span class="chip strong">Strong</span><span class="t"><strong>Alts almost always lose to BTC.</strong> A top-100 alt basket you could actually hold fell __CWTOTAL__ against BTC since 2016 and beat it in only __CWUP26__ of six-month windows. TOTAL3/BTC rose __T3TOTAL__ over the same years, because new coins and unlocks keep adding market cap that no holder earned.</span></li>
+      <li><span class="chip mod">Moderate</span><span class="t"><strong>High breadth is a warning for alts, not a buy signal.</strong> When most alts are above their 30-week average, the alt basket has tended to fall further behind BTC over the next three months. The effect has the same sign in both halves of the sample, but it is modest.</span></li>
+      <li><span class="chip watch">Watch-list</span><span class="t"><strong>BTC near its high while breadth fades.</strong> This happened 6 times. BTC was lower 13 weeks later in 5 of them, and ETH in 5 of 6. That is too few cases to call it tested, but it is the one pattern worth flagging live.</span></li>
+      <li><span class="chip no">No edge</span><span class="t"><strong>Washouts and breadth thrusts.</strong> A washout (almost nothing above its average) kept washing out: BTC was higher 13 weeks later only 2 times in 7. Thrusts out of a washout were mixed, and 26 weeks on they were no better than an ordinary week.</span></li>
+    </ul>
+  </header>
+
+  <section class="col">
+    <h2>Where breadth stands now</h2>
+    <div class="now">
+      <div><b>__NOW_MA__%</b><span>above their 30-week average (peak __NOW_PEAK__% in the last 8 weeks)</span></div>
+      <div><b>__NOW_MA50__%</b><span>above their 50-week average</span></div>
+      <div><b>__NOW_MA100__%</b><span>above their 100-week average</span></div>
+      <div><b>__NOW_MA200__%</b><span>above their 200-week average (__NOW_N200__ coins with that much history)</span></div>
+      <div><b>__NOW_YOY__%</b><span>higher than a year ago</span></div>
+      <div><b>__NOW_HL__</b><span>net new 52-week highs minus lows, % of coins</span></div>
+      <div><b>__NOW_DOM__%</b><span>BTC dominance (top-500 market cap)</span></div>
+      <div><b>__NOW_OFF__%</b><span>BTC vs. its 52-week high</span></div>
+    </div>
+    <p>Short-term breadth is high but rolling over; long-term breadth is still near bear-market levels. That combination has preceded a higher BTC a year later in all four past cases, though with only four cases it is a pattern, not a tested signal. BTC is well below its high, so the divergence pattern is not active. High 30-week breadth has also meant a headwind for alts against BTC.</p>
+  </section>
+
+  <section class="wide">
+    <figure>
+      <div id="c-overview" class="chart tall" role="img" aria-label="BTC price and share of top-100 coins above their 30-week average, 2016 to 2026"></div>
+      <figcaption>Top: BTC weekly close, log scale, with the six divergence weeks marked. Bottom: share of the week's top-100 coins (ex stablecoins and pegged tokens) trading above their own 30-week average, the weekly version of the 200-day line used for stocks.</figcaption>
+    </figure>
+  </section>
+
+  <section class="col">
+    <h2>1. Breadth and the next move in BTC</h2>
+    <p>If breadth predicted BTC, strong readings would be followed by better returns in both halves of the sample. They were in 2016–20, when strong breadth and strong BTC went together through two big bull runs. In 2021–26 the pattern is flat to inverted: the 60–80% bucket was followed by slightly negative BTC returns.</p>
+    <p>A relationship that only shows up in one regime is not something to trade on. Breadth also adds little once you know whether BTC itself is above its own 30-week average.</p>
+  </section>
+  <section class="wide">
+    <figure>
+      <div id="c-btc-buckets" class="chart" role="img" aria-label="Median 13-week BTC return by breadth bucket, 2016 to 2020 versus 2021 to 2026"></div>
+      <figcaption>Median BTC return over the next 13 weeks, grouped by the share of top-100 coins above their 30-week average. Dashed lines are each period's median for all weeks.</figcaption>
+    </figure>
+  </section>
+
+  <section class="col">
+    <h2>2. Short and long averages</h2>
+    <p>The same measure with a longer average answers a different question. The share of coins above their 30- or 50-week average tracks the current trend. The share above their 100- or 200-week average shows how far through the cycle the market is.</p>
+    <p>A coin needs nearly four years of history to be measured against a 200-week average, so that series starts in late 2020 with 15–55 coins and leans toward survivors. The 100-week series starts in 2016 with 40–80 coins.</p>
+  </section>
+  <section class="wide">
+    <figure>
+      <div id="c-windows" class="chart" style="height:640px" role="img" aria-label="BTC price and the share of top-100 coins above their 30, 50, 100 and 200-week averages"></div>
+      <figcaption>Share of the week's top-100 coins above their own 30-, 50-, 100- and 200-week averages, shown only when at least 30 coins have enough history. Dotted lines at 20% and 80%.</figcaption>
+    </figure>
+  </section>
+  <section class="col">
+    <p>Short averages lean with the trend over the next quarter, but only in the first half of the sample. Long averages lean against it over the next year: when most coins are above their 100-week average the following year has been weak, and when few are it has been strong. For the 100-week version that held in both halves. The table gives Spearman rank correlations with the BTC or ETH return over the next 13 or 52 weeks; each window's sample is split at its midpoint for the halves.</p>
+  </section>
+  <section class="wide"><div class="tbl" id="t-windows"></div></section>
+  <section class="col">
+    <p>Two checks temper this. First, 100-week breadth carries no information that BTC's own distance from its 100-week average doesn't already give. Second, entering when long-term breadth first hits a low has been early: lows lasted 71 weeks in 2018–20 and 77 weeks in 2022–23, and BTC was 38% and 48% lower six months after each began. As a gauge of where the cycle stands it is useful; as an entry trigger it is not.</p>
+    <h3>Signal: short-term strong, long-term weak</h3>
+    <p>The signal is on when 60% or more of the top 100 are above their 30-week average while 25% or fewer are above their 100-week average. Weeks on either side of a gap of up to two weeks count as one episode.</p>
+  </section>
+  <section class="wide"><div class="tbl" id="t-episodes"></div></section>
+  <section class="col">
+    <p>Each past episode was an early recovery out of a bear market, and BTC was higher a year after every one. None was a clean ride. BTC fell 53% from its peak within a year of the 2019 episodes, and after February 2020 it was at one point 42% below the signal-week price. These six episodes come from three bear-to-bull turns (2019, 2020 and 2023), so the sample is really three cycles.</p>
+    <h3>After the signal ends</h3>
+    <p>Like the Opportunity Signal, each week can be labelled by how long ago the last episode ended. The weeks after an episode ended were as good as the episode itself or better, so a signal that switched off a few weeks ago is still relevant.</p>
+  </section>
+  <section class="wide"><div class="tbl" id="t-recency"></div></section>
+  <section class="col">
+    <p>While the signal is on, the next six months have been a coin flip (median −1%, 48% of weeks higher). The second 2019 episode ran into the summer 2019 top. The edge shows at the one-year horizon and in the months after an episode ends.</p>
+    <h3>Does it depend on the exact thresholds?</h3>
+    <p>Every combination of 30-week cut-offs from 50% to 70% and 100-week cut-offs from 15% to 35% gave the same answer: BTC was higher a year after the start of every episode. Each cell shows episodes with BTC higher a year later out of episodes with a full year of data, and the median one-year return.</p>
+  </section>
+  <section class="wide"><div class="tbl" id="t-grid"></div></section>
+
+  <section class="col">
+    <h2>3. What breadth says about alts against BTC</h2>
+    <p>Most alt analysis uses TOTAL2, TOTAL3 or OTHERS: the summed market cap of everything except BTC (and ETH, or the top 10). Those totals grow whenever a new coin launches or tokens unlock, so they overstate what anyone holding alts actually earned.</p>
+    <p>The chart compares TOTAL3/BTC with two baskets you could have held: the top-100 alts by market cap, and the same coins equal-weighted, both rebalanced weekly into that week's top 100.</p>
+  </section>
+  <section class="wide">
+    <figure>
+      <div id="c-alts" class="chart" role="img" aria-label="Alt baskets versus TOTAL3, each relative to BTC, 2016 to 2026"></div>
+      <figcaption>Each line is relative to BTC and starts at 1 in January 2016, log scale. Baskets are rebuilt weekly from that week's top-100 alts (ex BTC, ETH, stablecoins and pegged tokens). TOTAL3 here is the top-500 market cap minus BTC and ETH, with and without stablecoins.</figcaption>
+    </figure>
+  </section>
+  <section class="col">
+    <p>Holding alts instead of BTC cost about 90% since 2016 either way you weight them, and the typical single alt lost essentially everything relative to BTC. Over that time TOTAL3/BTC rose __T3TOTAL__, or __T3XTOTAL__ without stablecoins.</p>
+    <p>Within that steady bleed, breadth does carry information. The more alts are above their own averages, the worse the basket has done against BTC over the following quarter. The correlation is −0.22 for the next 13 weeks (90% interval −0.38 to −0.04), and −0.26 and −0.20 in the two halves taken separately.</p>
+  </section>
+  <section class="wide">
+    <figure>
+      <div id="c-alt-buckets" class="chart" role="img" aria-label="Median 13-week and 26-week return of the alt basket versus BTC by breadth bucket"></div>
+      <figcaption>Median return of the cap-weighted top-100 alt basket relative to BTC over the next 13 and 26 weeks, by breadth bucket, 2016–2026. Every bucket is negative; the question is how negative.</figcaption>
+    </figure>
+  </section>
+
+  <section class="col">
+    <h2>4. Breadth extremes as signals</h2>
+    <p>Three patterns borrowed from equity breadth work, each counted once per episode, with repeats inside 26 weeks ignored. Returns are for the 13 weeks after the signal week. The baseline row is the median for all weeks since 2016.</p>
+    <h3>Divergence: BTC within 10% of its 52-week high, under 50% of alts above their average, down 15+ points in 8 weeks</h3>
+  </section>
+  <section class="wide"><div class="tbl" id="t-divergence"></div></section>
+  <section class="col">
+    <p>The exception was November 2016, at the start of the 2017 run. The other five came near local tops: August 2019, May 2023, June 2024, February 2025 and October 2025. With six cases this is a pattern to watch, not a rule.</p>
+    <h3>Washout: 10% or fewer of the top 100 above their 30-week average</h3>
+  </section>
+  <section class="wide"><div class="tbl" id="t-washout"></div></section>
+  <section class="col">
+    <p>March 2020 and September 2024 were superb entries. April and October 2018 and both 2022 washouts were followed by more losses. A washout tells you the market is oversold, not that the selling is over.</p>
+    <h3>Thrust: from 20% or less to 60% or more above the average within 6 weeks</h3>
+  </section>
+  <section class="wide"><div class="tbl" id="t-thrust"></div></section>
+  <section class="col">
+    <p>Thrusts are the classic equity breadth buy signal. BTC's median 13-week return after one was +20%, against +10% for all weeks, but 3 of the 7 were negative, and 26 weeks out the median (+23%) was in line with an ordinary week (+26%). The alt basket still lost to BTC after six of seven thrusts.</p>
+  </section>
+
+  <section class="col">
+    <h2>What I'd put on the site</h2>
+    <ul class="plain">
+      <li><strong>Alts vs. BTC.</strong> The holdable alt basket against TOTAL3, both relative to BTC. It is the strongest result here and the one most readers will not have seen.</li>
+      <li><strong>Crypto breadth.</strong> Share of the top 100 above their 30-week and 100- or 200-week averages, under BTC, with the divergence and short-strong/long-weak conditions flagged when they are live. Presented as a read on market health and cycle position, not as a BTC timing signal.</li>
+      <li><strong>Skip</strong> washout and thrust signals, and any TOTAL2/TOTAL3 chart that implies those totals are returns.</li>
+    </ul>
+    <p class="note">The snapshots come from CoinMarketCap's public website feed, which is free but unofficial and weekly. A site chart could run on it with a fallback, or on a paid source if it ever breaks.</p>
+
+    <h2>Method</h2>
+    <ul class="plain">
+      <li><strong>Universe.</strong> Each week's top 100 by market cap from that week's snapshot, so coins that later collapsed count while they were large. Stablecoins, wrapped and liquid-staked copies (found by price tracking $1, BTC, ETH, SOL or BNB) and tokenized stocks and commodities are removed.</li>
+      <li><strong>Measures.</strong> Price above its 30-week average (needs 26 of 30 weeks of history); price above a year ago; 52-week highs and lows; dominance and totals from the top-500 market caps.</li>
+      <li><strong>Testing.</strong> Forward returns at 4, 13, 26 and 52 weeks; rank correlations with a block bootstrap, because overlapping weekly windows overstate significance; every result split into 2016–20 and 2021–26. A result counts only if it has the same sign in both halves.</li>
+      <li><strong>Limits.</strong> Weekly data, about four crypto cycles, and roughly 20 independent six-month periods. Event studies have six or seven cases each.</li>
+    </ul>
+    <footer>Alphaline Research · Source: CoinMarketCap weekly historical snapshots · Code: research/breadth in the alphaline-charts repo</footer>
+  </section>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/3.0.1/plotly.min.js"></script>
+<script>
+const D = __DATA__;
+const css = getComputedStyle(document.documentElement);
+const V = n => css.getPropertyValue(n).trim();
+const C = { gold: V('--gold'), lit: V('--gold-lit'), good: V('--good'), bad: V('--bad'), steel: V('--steel'),
+            t2: V('--text-2'), t3: V('--text-3'), rule: V('--rule'), panel: V('--panel') };
+const font = { family: "'IBM Plex Sans', 'Segoe UI', sans-serif", size: 12, color: C.t2 };
+const axis = { gridcolor: C.rule, linecolor: C.rule, zeroline: false, tickfont: { size: 12, color: C.t3 } };
+const phone = () => window.innerWidth < 560;
+const base = (extra) => Object.assign({
+  paper_bgcolor: C.panel, plot_bgcolor: C.panel, font, hovermode: 'x unified',
+  hoverlabel: { bgcolor: '#0A1628', bordercolor: C.gold, font: { family: font.family, size: 12, color: '#E8EDF1' } },
+  margin: { l: 56, r: 18, t: 18, b: 44 },
+  legend: { orientation: 'h', y: -0.14, x: 0, font: { size: 12, color: C.t2 } },
+}, extra);
+const cfg = { displayModeBar: false, responsive: true };
+const pct = (v, d = 0) => (v == null || Number.isNaN(v)) ? '–' : (v >= 0 ? '+' : '−') + Math.abs(v * 100).toFixed(d) + '%';
+const S = D.series;
+
+// Overview
+(function () {
+  const div = D.events.divergence;
+  const dx = div.map(e => e.date), dy = div.map(e => S.btc[S.date.indexOf(e.date)]);
+  Plotly.newPlot('c-overview', [
+    { x: S.date, y: S.btc, name: 'BTC', line: { color: C.gold, width: 1.6 }, yaxis: 'y', hovertemplate: '$%{y:,.0f}<extra>BTC</extra>' },
+    { x: dx, y: dy, name: 'Divergence week', mode: 'markers', marker: { symbol: 'triangle-down', size: 11, color: C.bad }, yaxis: 'y', hovertemplate: '%{x|%b %-d, %Y}<extra>Divergence</extra>' },
+    { x: S.date, y: S.pct_above_ma, name: '% above 30-week average', line: { color: C.lit, width: 1.2 }, fill: 'tozeroy', fillcolor: 'rgba(236,201,106,0.12)', yaxis: 'y2', hovertemplate: '%{y:.0f}%<extra>Above 30w avg</extra>' },
+  ], base({
+    grid: { rows: 2, columns: 1, roworder: 'top to bottom' },
+    yaxis: Object.assign({}, axis, { type: 'log', domain: [0.46, 1], tickvals: [300, 1000, 3000, 10000, 30000, 100000], ticktext: ['$300', '$1k', '$3k', '$10k', '$30k', '$100k'] }),
+    yaxis2: Object.assign({}, axis, { domain: [0, 0.38], range: [0, 100], ticksuffix: '%', tickvals: [0, 20, 50, 80, 100] }),
+    xaxis: Object.assign({}, axis, { anchor: 'y2', hoverformat: '%b %-d, %Y' }),
+    shapes: [20, 80].map(y => ({ type: 'line', xref: 'paper', x0: 0, x1: 1, yref: 'y2', y0: y, y1: y, line: { color: C.steel, width: 1, dash: 'dot' } })),
+    legend: { orientation: 'h', y: -0.1, x: 0, font: { size: 12, color: C.t2 } },
+  }), cfg);
+})();
+
+// BTC buckets by period
+(function () {
+  const a = D.buckets['2016–20'], b = D.buckets['2021–26'];
+  const x = a.rows.map(r => r.bucket + '%');
+  Plotly.newPlot('c-btc-buckets', [
+    { x, y: a.rows.map(r => r.btc_13), type: 'bar', name: '2016–20', marker: { color: C.gold }, text: a.rows.map(r => pct(r.btc_13)), textposition: 'outside', textfont: { size: 12, color: C.t2 }, hovertemplate: '%{x}: %{text} (%{customdata} weeks)<extra>2016–20</extra>', customdata: a.rows.map(r => r.weeks) },
+    { x, y: b.rows.map(r => r.btc_13), type: 'bar', name: '2021–26', marker: { color: C.steel }, text: b.rows.map(r => pct(r.btc_13)), textposition: 'outside', textfont: { size: 12, color: C.t2 }, hovertemplate: '%{x}: %{text} (%{customdata} weeks)<extra>2021–26</extra>', customdata: b.rows.map(r => r.weeks) },
+  ], base({
+    barmode: 'group', bargap: 0.3, hovermode: 'closest',
+    xaxis: Object.assign({}, axis, { title: { text: 'Share of top 100 above their 30-week average', font: { size: 12, color: C.t3 } } }),
+    yaxis: Object.assign({}, axis, { tickformat: '+.0%', zeroline: true, zerolinecolor: C.steel }),
+    shapes: [[a.base.btc_13, C.gold], [b.base.btc_13, C.steel]].map(([y, c]) => ({ type: 'line', xref: 'paper', x0: 0, x1: 1, y0: y, y1: y, line: { color: c, width: 1, dash: 'dash' } })),
+    margin: { l: 56, r: 18, t: 28, b: 64 }, legend: { orientation: 'h', y: -0.26, x: 0 },
+  }), cfg);
+})();
+
+// Alts vs BTC
+(function () {
+  Plotly.newPlot('c-alts', [
+    { x: S.date, y: S.total3_btc, name: 'TOTAL3 / BTC', line: { color: C.steel, width: 1.4, dash: 'dot' }, hovertemplate: '%{y:.2f}<extra>TOTAL3/BTC</extra>' },
+    { x: S.date, y: S.total3x_btc, name: 'TOTAL3 ex stables / BTC', line: { color: C.t3, width: 1.4 }, hovertemplate: '%{y:.2f}<extra>TOTAL3 ex stables/BTC</extra>' },
+    { x: S.date, y: S.alts_btc, name: 'Alt basket (cap-weighted) / BTC', line: { color: C.gold, width: 2 }, hovertemplate: '%{y:.3f}<extra>Cap-weighted alts/BTC</extra>' },
+    { x: S.date, y: S.alts_btc_ew, name: 'Alt basket (equal-weighted) / BTC', line: { color: C.bad, width: 1.6 }, hovertemplate: '%{y:.3f}<extra>Equal-weighted alts/BTC</extra>' },
+  ], base({
+    xaxis: Object.assign({}, axis, { hoverformat: '%b %-d, %Y' }),
+    yaxis: Object.assign({}, axis, { type: 'log', tickvals: [0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10], ticktext: ['0.05', '0.1', '0.2', '0.5', '1', '2', '5', '10'] }),
+    shapes: [{ type: 'line', xref: 'paper', x0: 0, x1: 1, y0: 1, y1: 1, line: { color: C.steel, width: 1, dash: 'dash' } }],
+    margin: { l: 56, r: 18, t: 18, b: 64 }, legend: { orientation: 'h', y: -0.14, x: 0 },
+  }), cfg);
+})();
+
+// Alt buckets
+(function () {
+  const a = D.buckets.all;
+  const x = a.rows.map(r => r.bucket + '%');
+  Plotly.newPlot('c-alt-buckets', [
+    { x, y: a.rows.map(r => r.alts_btc_13), type: 'bar', name: 'Next 13 weeks', marker: { color: C.gold }, text: a.rows.map(r => pct(r.alts_btc_13)), textposition: 'outside', textfont: { size: 12, color: C.t2 }, hovertemplate: '%{x}: %{text}<extra>13 weeks</extra>' },
+    { x, y: a.rows.map(r => r.alts_btc_26), type: 'bar', name: 'Next 26 weeks', marker: { color: C.bad }, text: a.rows.map(r => pct(r.alts_btc_26)), textposition: 'outside', textfont: { size: 12, color: C.t2 }, hovertemplate: '%{x}: %{text}<extra>26 weeks</extra>' },
+  ], base({
+    barmode: 'group', bargap: 0.3, hovermode: 'closest',
+    xaxis: Object.assign({}, axis, { title: { text: 'Share of top 100 above their 30-week average', font: { size: 12, color: C.t3 } } }),
+    yaxis: Object.assign({}, axis, { tickformat: '+.0%', zeroline: true, zerolinecolor: C.steel, range: [-0.34, 0.03] }),
+    margin: { l: 56, r: 18, t: 18, b: 64 }, legend: { orientation: 'h', y: -0.26, x: 0 },
+  }), cfg);
+})();
+
+// Breadth by window
+(function () {
+  const W = [[30, C.lit], [50, C.gold], [100, C.steel], [200, C.t3]];
+  const gap = 0.025, h = (1 - gap * 4) / 6;   // BTC panel gets two rows' height
+  const tr = [{ x: S.date, y: S.btc, name: 'BTC', line: { color: C.gold, width: 1.4 }, yaxis: 'y', hovertemplate: '$%{y:,.0f}<extra>BTC</extra>' }];
+  const lay = base({
+    hovermode: 'x unified', showlegend: false, margin: { l: 56, r: 18, t: 14, b: 36 },
+    xaxis: Object.assign({}, axis, { anchor: 'y5', hoverformat: '%b %-d, %Y' }),
+    yaxis: Object.assign({}, axis, { type: 'log', domain: [1 - 2 * h, 1], tickvals: [300, 1000, 3000, 10000, 30000, 100000], ticktext: ['$300', '$1k', '$3k', '$10k', '$30k', '$100k'] }),
+    shapes: [], annotations: [],
+  });
+  W.forEach(([n, col], i) => {
+    const ya = 'y' + (i + 2), top = 1 - 2 * h - gap - i * (h + gap);
+    tr.push({ x: S.date, y: S['ma' + n], name: n + 'w', yaxis: ya, line: { color: col, width: 1.2 }, fill: 'tozeroy', fillcolor: 'rgba(122,143,159,0.10)', connectgaps: false, hovertemplate: '%{y:.0f}%<extra>above ' + n + 'w avg</extra>' });
+    lay['yaxis' + (i + 2)] = Object.assign({}, axis, { domain: [Math.max(0, top - h), top], range: [0, 100], tickvals: [0, 50, 100], ticksuffix: '%' });
+    [20, 80].forEach(y => lay.shapes.push({ type: 'line', xref: 'paper', x0: 0, x1: 1, yref: ya, y0: y, y1: y, line: { color: C.rule, width: 1, dash: 'dot' } }));
+    lay.annotations.push({ xref: 'paper', x: 0.005, xanchor: 'left', yref: ya + ' domain', y: 1, yanchor: 'top', text: n + '-week', showarrow: false, font: { size: 12, color: col } });
+  });
+  Plotly.newPlot('c-windows', tr, lay, cfg);
+})();
+
+(function () {
+  const M = D.multi_rho, g = (n, t, h) => M.find(r => r.ma === n && r.target === t && r.h === h) || {};
+  const f = v => (v == null || Number.isNaN(v)) ? '–' : (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(2);
+  const cls = v => (v == null || Number.isNaN(v) || Math.abs(v) < 0.15) ? '' : v > 0 ? 'pos' : 'neg';
+  let h = '<table><thead><tr><th>Average</th><th>From</th><th>BTC, next 13 wk</th><th>BTC, next 52 wk</th><th>52 wk, 1st half</th><th>52 wk, 2nd half</th><th>ETH, next 52 wk</th></tr></thead><tbody>';
+  [30, 50, 100, 200].forEach(n => {
+    const a = g(n, 'BTC', 13), b = g(n, 'BTC', 52), e = g(n, 'ETH', 52);
+    h += `<tr><td>${n}-week</td><td>${String(a.start).slice(0, 4)}</td>` + [a.rho, b.rho, b.first_half, b.second_half, e.rho].map(v => `<td class="${cls(v)}">${f(v)}</td>`).join('') + '</tr>';
+  });
+  document.getElementById('t-windows').innerHTML = h + '</tbody></table>';
+
+
+})();
+
+
+// Signal episodes, recency, threshold grid
+(function () {
+  const P = D.sslw;
+  const fmtDay = s => new Date(s + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+  const cell = (v, pending) => `<td class="${v == null ? '' : v >= 0 ? 'pos' : 'neg'}">${v == null ? (pending ? 'pending' : '–') : pct(v)}</td>`;
+  let h = '<table><thead><tr><th>Episode</th><th>Weeks on</th><th>BTC, 13 wk</th><th>BTC, 26 wk</th><th>BTC, 52 wk</th><th>Worst drawdown, next 52 wk</th><th>Lowest vs. start</th></tr></thead><tbody>';
+  P.episodes.forEach(r => {
+    const live = r.btc_13 == null;
+    h += `<tr><td>${fmtDay(r.start)}${r.end !== r.start ? ' – ' + fmtDay(r.end) : ''}${live ? ' (on now)' : ''}</td><td>${r.weeks}</td>` +
+      cell(r.btc_13, live) + cell(r.btc_26, live) + cell(r.btc_52, live) + cell(r.max_dd, live) + cell(r.low_vs_entry, live) + '</tr>';
+  });
+  h += `<tr class="base"><td>All weeks since 2016</td><td></td><td>${pct(D.baseline.btc_13)}</td><td>${pct(D.baseline.btc_26)}</td><td>${pct(D.baseline.btc_52)}</td><td></td><td></td></tr>`;
+  document.getElementById('t-episodes').innerHTML = h + '</tbody></table>';
+
+  const names = { 'on': 'On', 'fresh (ended ≤4w)': 'Fresh: ended ≤ 4 weeks ago', 'recent (4–13w)': 'Recent: 4–13 weeks ago', 'fading (13–26w)': 'Fading: 13–26 weeks ago', 'off (>26w or never)': 'Off: over 26 weeks, or never' };
+  const up = v => v == null ? '–' : Math.round(v * 100) + '%';
+  let r = '<table><thead><tr><th>Signal state</th><th>Weeks</th><th>BTC, 13 wk</th><th>BTC, 26 wk</th><th>BTC, 52 wk</th><th>Higher after 52 wk</th></tr></thead><tbody>';
+  P.recency.forEach(x => {
+    r += `<tr${x.bucket.startsWith('off') ? ' class="base"' : ''}><td>${names[x.bucket]}</td><td>${x.weeks}</td>` + cell(x.med_13) + cell(x.med_26) + cell(x.med_52) + `<td>${up(x.up_52)}</td></tr>`;
+  });
+  document.getElementById('t-recency').innerHTML = r + '</tbody></table>';
+
+  const lts = [...new Set(P.grid.map(g => g.lt))], sts = [...new Set(P.grid.map(g => g.st))];
+  let g = '<table><thead><tr><th>30-week ≥ \\ 100-week ≤</th>' + lts.map(l => `<th>${Math.round(l * 100)}%</th>`).join('') + '</tr></thead><tbody>';
+  sts.forEach(st => {
+    g += `<tr${st === 0.6 ? ' class="sum"' : ''}><td>${Math.round(st * 100)}%</td>` + lts.map(lt => {
+      const c = P.grid.find(x => x.st === st && x.lt === lt);
+      return `<td class="${c.n && c.up === c.n ? 'pos' : ''}">${c.up}/${c.n} · ${pct(c.med)}</td>`;
+    }).join('') + '</tr>';
+  });
+  document.getElementById('t-grid').innerHTML = g + '</tbody></table>';
+})();
+
+// Event tables
+function table(id, rows) {
+  const cols = [['btc_13', 'BTC'], ['eth_13', 'ETH'], ['alts_btc_13', 'Alts vs BTC']];
+  const fmtDate = s => new Date(s + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' });
+  const cell = v => `<td class="${v == null ? '' : v >= 0 ? 'pos' : 'neg'}">${pct(v)}</td>`;
+  const med = k => { const v = rows.map(r => r[k]).filter(v => v != null).sort((a, b) => a - b); const n = v.length; return n ? (n % 2 ? v[(n - 1) / 2] : (v[n / 2 - 1] + v[n / 2]) / 2) : null; };
+  const up = k => { const v = rows.map(r => r[k]).filter(v => v != null); return v.filter(x => x > 0).length + ' of ' + v.length; };
+  let h = '<table><thead><tr><th>Signal week</th><th>Breadth</th>' + cols.map(c => `<th>${c[1]}, 13 wk</th>`).join('') + '</tr></thead><tbody>';
+  rows.forEach(r => { h += `<tr><td>${fmtDate(r.date)}</td><td>${r.breadth}%</td>` + cols.map(c => cell(r[c[0]])).join('') + '</tr>'; });
+  h += '<tr class="sum"><td>Median</td><td></td>' + cols.map(c => `<td>${pct(med(c[0]))}</td>`).join('') + '</tr>';
+  h += '<tr class="sum"><td>Higher after 13 wk</td><td></td>' + cols.map(c => `<td>${up(c[0])}</td>`).join('') + '</tr>';
+  h += '<tr class="base"><td>All weeks since 2016</td><td></td>' + cols.map(c => `<td>${pct(D.baseline[c[0]])}</td>`).join('') + '</tr>';
+  document.getElementById(id).innerHTML = h + '</tbody></table>';
+}
+table('t-divergence', D.events.divergence);
+table('t-washout', D.events.washout);
+table('t-thrust', D.events.thrust);
+
+// Phones: fewer ticks, tighter margins
+function fit() {
+  const p = phone();
+  ['c-overview', 'c-btc-buckets', 'c-alts', 'c-alt-buckets', 'c-windows'].forEach(id => {
+    Plotly.relayout(id, { 'margin.l': p ? 44 : 56, 'xaxis.nticks': p ? 5 : 10 });
+  });
+}
+fit();
+window.addEventListener('resize', fit);
+</script>
