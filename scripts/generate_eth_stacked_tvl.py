@@ -17,6 +17,8 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import yfinance as yf
 
+from alphaline_theme import apply_theme, write_chart, date_long
+
 # ════════════════════════════════════════════
 # CONFIG
 # ════════════════════════════════════════════
@@ -34,54 +36,13 @@ OUTPUT_PATH = os.path.join('docs', 'eth_stacked_tvl.html')
 # ════════════════════════════════════════════
 # ALPHALINE BRAND COLORS
 # ════════════════════════════════════════════
-NAVY      = '#0A1628'
-NAVY_MID  = '#102240'
 GOLD      = '#D4A843'
 GOLD_LIT  = '#ECC96A'
 WHITE     = '#F8FAFB'
 MIST      = '#7A8F9F'
-STEEL     = '#374D61'
 GREEN_LIT = '#2ABF7A'
 
-CHART_WIDTH  = 1100
-CHART_HEIGHT = 750
-
-
-# ════════════════════════════════════════════
-# ALPHALINE CHART TEMPLATE
-# ════════════════════════════════════════════
-def alphaline_layout(fig, title, height=CHART_HEIGHT, subtitle='',
-                     source='alphalineresearch.com  |  Yahoo Finance  |  DeFiLlama'):
-    fig.update_layout(
-        template='plotly_dark',
-        paper_bgcolor=NAVY, plot_bgcolor=NAVY_MID,
-        height=height, autosize=True,
-        showlegend=False,
-        title=dict(
-            text=(
-                f'<span style="font-family:Georgia,serif; font-size:15px; color:{WHITE};">{title}</span>'
-                f'<br><span style="font-family:Courier New,monospace; font-size:8px; color:{GOLD};">ALPHALINE RESEARCH</span>'
-                + (f'<br><span style="font-family:Courier New,monospace; font-size:9px; color:{MIST};">{subtitle}</span>' if subtitle else '')
-            ),
-            x=0.02, xanchor='left', y=0.985, yanchor='top'
-        ),
-        font=dict(family='Courier New, monospace', color=MIST, size=10),
-        margin=dict(l=40, r=20, t=80, b=95),
-        xaxis=dict(gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5, zeroline=False,
-                   showspikes=True, spikecolor=MIST, spikethickness=1, spikedash='dot'),
-        xaxis2=dict(gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5, zeroline=False),
-        yaxis=dict(gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5, zeroline=False),
-        yaxis2=dict(gridcolor='rgba(212,168,67,0.03)', gridwidth=0.4, zeroline=False),
-        hoverlabel=dict(bgcolor=NAVY_MID, bordercolor=GOLD,
-                        font=dict(family='Courier New, monospace', size=11, color=WHITE)),
-        annotations=[
-            dict(text=f'Source: {source}', xref='paper', yref='paper',
-                 x=0.5, y=-0.03, xanchor='center', yanchor='top',
-                 font=dict(family='Courier New, monospace', size=8, color=STEEL), showarrow=False),
-
-        ],
-    )
-    return fig
+SOURCE = 'Yahoo Finance · DeFiLlama'
 
 
 # ════════════════════════════════════════════
@@ -241,18 +202,6 @@ def plot_eth_vs_stacked_tvl_ath(df):
     ), row=1, col=1)
 
     latest = d.iloc[-1]
-    fig.add_annotation(
-        x=d.index[-1], y=latest['eth_price'],
-        text=f'  ${latest["eth_price"]:,.0f}',
-        showarrow=False, xanchor='left',
-        font=dict(family='Courier New, monospace', size=10, color=GOLD)
-    )
-    if latest['eth_price'] >= latest['eth_ath'] * 0.999:
-        fig.add_annotation(
-            x=d.index[-1], y=latest['eth_ath'],
-            text='  ▲ ATH', showarrow=False, xanchor='left',
-            font=dict(family='Courier New, monospace', size=9, color=GOLD_LIT)
-        )
 
     # ── Bottom panel: stacked TVL areas ──
     fig.add_trace(go.Scatter(
@@ -290,45 +239,19 @@ def plot_eth_vs_stacked_tvl_ath(df):
         hovertemplate='%{x|%Y-%m-%d}<br>Total ATH: $%{y:.1f}B<extra></extra>'
     ), row=2, col=1)
 
-    # Annotations on bottom panel
-    for val, color, label in [
-        (latest['stable_tvl_usd'] / 2 / 1e9,                              GOLD,      f'Stablecoins  ${latest["stable_tvl_usd"]/1e9:.0f}B'),
-        ((latest['stable_tvl_usd'] + latest['defi_tvl_usd'] / 2) / 1e9,  MIST,      f'DeFi  ${latest["defi_tvl_usd"]/1e9:.0f}B'),
-        (latest['total_secured_usd'] / 1e9,                                GREEN_LIT, f'Total  ${latest["total_secured_usd"]/1e9:.0f}B'),
-    ]:
-        fig.add_annotation(
-            x=d.index[-1], y=val, text=f'  {label}',
-            showarrow=False, xanchor='left',
-            font=dict(family='Courier New, monospace', size=9, color=color)
-        )
-
-    # Event lines
-
-    subtitle = f'ETH: ${latest["eth_price"]:,.0f}  ·  Total Secured: ${latest["total_secured_usd"]/1e9:.0f}B'
-    alphaline_layout(fig, 'ETH Price + Stacked TVL — Rolling ATH', subtitle=subtitle, height=CHART_HEIGHT)
-
-    fig.update_layout(
-        showlegend=True,
-        legend=dict(
-            bgcolor='rgba(10,22,40,0.0)', bordercolor='rgba(0,0,0,0)', borderwidth=0,
-            font=dict(size=9, color=MIST),
-            orientation='h', x=0.5, xanchor='center',
-            y=-0.11, yanchor='top',
-            tracegroupgap=0,
-            entrywidthmode='fraction', entrywidth=0.40,
-        ),
-        margin=dict(l=40, r=20, t=80, b=100),
-        shapes=[],
+    # The latest readings live in the page subtitle (end-of-line labels clipped
+    # at the right edge, and the price one sat on a log axis in linear units)
+    subtitle = (
+        f'<b>ETH ${latest["eth_price"]:,.0f}</b>  ·  '
+        f'<b>${latest["total_secured_usd"]/1e9:.0f}B</b> secured: '
+        f'stablecoins ${latest["stable_tvl_usd"]/1e9:.0f}B, DeFi ${latest["defi_tvl_usd"]/1e9:.0f}B, '
+        f'RWA ${latest["rwa_tvl_usd"]/1e9:.1f}B  ·  {date_long(d.index[-1])}'
     )
-    fig.update_yaxes(
-        type='log',
-        tickmode='array',
-        tickvals=[100, 300, 1_000, 3_000, 10_000, 30_000],
-        ticktext=['$0.1K', '$0.3K', '$1K', '$3K', '$10K', '$30K'],
-        title_text='', row=1, col=1
-    )
+
+    apply_theme(fig)
+    fig.update_yaxes(type='log', tickformat='$,.0f', title_text='', row=1, col=1)
     fig.update_yaxes(tickprefix='$', ticksuffix='B', title_text='', row=2, col=1)
-    return fig
+    return fig, subtitle
 
 
 # ════════════════════════════════════════════
@@ -339,7 +262,10 @@ if __name__ == '__main__':
 
     print('=== Building ETH Stacked TVL chart ===')
     df  = build_dataframe()
-    fig = plot_eth_vs_stacked_tvl_ath(df)
-
-    fig.write_html(OUTPUT_PATH, include_plotlyjs='cdn', config={'responsive': True})
+    fig, subtitle = plot_eth_vs_stacked_tvl_ath(df)
+    write_chart(fig, OUTPUT_PATH,
+                title='Value Secured on Ethereum',
+                subtitle=subtitle,
+                note='ETH price and stacked stablecoin, DeFi and RWA value; dotted lines = running all-time highs',
+                source=SOURCE, default='5Y')
     print(f'Saved: {OUTPUT_PATH}')
