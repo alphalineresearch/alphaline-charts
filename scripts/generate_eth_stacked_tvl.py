@@ -32,6 +32,7 @@ EIP4844      = '2024-03-13'
 ETH_ETF      = '2024-07-23'
 
 OUTPUT_PATH = os.path.join('docs', 'eth_stacked_tvl.html')
+RWA_NOTE = ' · RWA = on-chain RWA protocols only; DefiLlama stopped counting tokenized funds (BUIDL, gold tokens) on Sep 16, 2026'
 
 # ════════════════════════════════════════════
 # ALPHALINE BRAND COLORS
@@ -266,7 +267,7 @@ if __name__ == '__main__':
     write_chart(fig, OUTPUT_PATH,
                 title='Value Secured on Ethereum',
                 subtitle=subtitle,
-                note='ETH price and stacked stablecoin, DeFi and RWA value; dotted lines = running all-time highs',
+                note='ETH price and stacked stablecoin, DeFi and RWA value; dotted lines = running all-time highs' + RWA_NOTE,
                 source=SOURCE, default='5Y',
                 fit_y=('yaxis2',))   # secured value rescales to the window shown
     print(f'Saved: {OUTPUT_PATH}')

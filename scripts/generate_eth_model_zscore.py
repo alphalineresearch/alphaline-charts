@@ -38,6 +38,7 @@ ETH_SUPPLY        = 120_000_000
 ETH_TVL_THRESHOLD = 1_000_000
 
 OUTPUT_PATH = os.path.join('docs', 'eth_model_zscore.html')
+RWA_NOTE = ' · RWA = on-chain RWA protocols only; DefiLlama stopped counting tokenized funds (BUIDL, gold tokens) on Sep 16, 2026'
 
 # ════════════════════════════════════════════
 # BRAND COLORS
@@ -315,6 +316,6 @@ if __name__ == '__main__':
     write_chart(fig, OUTPUT_PATH,
                 title='ETH Model Z-score',
                 subtitle=subtitle,
-                note='How far ETH trades from the combined TVL model, in standard deviations of the fit',
+                note='How far ETH trades from the combined TVL model, in standard deviations of the fit' + RWA_NOTE,
                 source=SOURCE, default='5Y')
     print(f'Saved: {OUTPUT_PATH}')

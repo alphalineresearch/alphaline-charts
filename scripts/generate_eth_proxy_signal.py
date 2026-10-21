@@ -33,6 +33,7 @@ ZSCORE_THRESH     = -1.0   # z-score <= this = below -1σ model
 ETH_TVL_THRESHOLD = 1_000_000   # min $1M on Ethereum for RWA protocols
 
 OUTPUT_PATH = os.path.join('docs', 'eth_proxy_signal.html')
+RWA_NOTE = ' · RWA = on-chain RWA protocols only; DefiLlama stopped counting tokenized funds (BUIDL, gold tokens) on Sep 16, 2026'
 
 # ════════════════════════════════════════════
 # ALPHALINE BRAND COLORS
@@ -381,6 +382,6 @@ if __name__ == '__main__':
                 title='ETH Volatility Shock Signal',
                 subtitle=subtitle,
                 note=(f'Confluence (green) = 7-day realised vol above {RV_RATIO_THRESH}× the 30-day, '
-                      f'price {DD_THRESH:.0f}%+ below its 90-day high, and at or below −1σ on the combined TVL model'),
+                      f'price {DD_THRESH:.0f}%+ below its 90-day high, and at or below −1σ on the combined TVL model') + RWA_NOTE,
                 source='Yahoo Finance · DeFiLlama', default='5Y', min_plot_height=420)
     print(f'Saved: {OUTPUT_PATH}')

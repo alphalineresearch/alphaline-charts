@@ -33,6 +33,7 @@ ETH_TVL_THRESHOLD  = 1_000_000
 LIDO_POOL_ID = '747c1d2a-c668-4682-b9f9-296708a3dd90'
 
 OUTPUT_PATH = os.path.join('docs', 'eth_combined_tvl.html')
+RWA_NOTE = ' · RWA = on-chain RWA protocols only; DefiLlama stopped counting tokenized funds (BUIDL, gold tokens) on Sep 16, 2026'
 
 # ════════════════════════════════════════════
 # ALPHALINE BRAND COLORS
@@ -362,6 +363,6 @@ if __name__ == '__main__':
     write_chart(fig, OUTPUT_PATH,
                 title='ETH Model Price',
                 subtitle=subtitle,
-                note='Combined TVL model (stablecoins + DeFi + RWA) · bands at ±1σ and ±2σ',
+                note='Combined TVL model (stablecoins + DeFi + RWA) · bands at ±1σ and ±2σ' + RWA_NOTE,
                 source=SOURCE, default='5Y', min_plot_height=420)
     print(f'Saved: {OUTPUT_PATH}')

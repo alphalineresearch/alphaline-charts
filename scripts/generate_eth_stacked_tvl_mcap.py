@@ -38,6 +38,7 @@ ETH_SUPPLY        = 120_000_000
 ETH_TVL_THRESHOLD = 1_000_000
 
 OUTPUT_PATH = os.path.join('docs', 'eth_stacked_tvl_mcap.html')
+RWA_NOTE = ' · RWA = on-chain RWA protocols only; DefiLlama stopped counting tokenized funds (BUIDL, gold tokens) on Sep 16, 2026'
 
 # ════════════════════════════════════════════
 # BRAND COLORS
@@ -247,6 +248,6 @@ if __name__ == '__main__':
                 title='ETH Secured Value vs. Market Cap',
                 subtitle=subtitle,
                 note='Value secured on Ethereum (stablecoins + DeFi + RWA) ÷ ETH market cap. '
-                     'Above 1× Ethereum would secure more than it is worth',
+                     'Above 1× Ethereum would secure more than it is worth' + RWA_NOTE,
                 source=SOURCE, default='5Y')
     print(f'Saved: {OUTPUT_PATH}')
