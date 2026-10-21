@@ -286,10 +286,10 @@ def plot_model_compact(df, r2_a):
     zscore  = model_df['zscore']
     zcolors = [
         RED_LIT                   if v >  2 else
-        'rgba(214,68,68,0.55)'    if v >  1 else
-        'rgba(214,68,68,0.30)'    if v >  0 else
-        'rgba(42,191,122,0.30)'   if v > -1 else
-        'rgba(42,191,122,0.55)'   if v > -2 else
+        'rgba(232,106,106,0.85)'  if v >  1 else
+        'rgba(232,106,106,0.55)'  if v >  0 else
+        'rgba(42,191,122,0.55)'   if v > -1 else
+        'rgba(42,191,122,0.85)'   if v > -2 else
         GREEN_LIT
         for v in zscore
     ]
@@ -328,6 +328,7 @@ def plot_model_compact(df, r2_a):
     )
 
     apply_theme(fig)
+    fig.update_layout(bargap=0)   # daily bars: gaps read as dark stripes
     fig.update_yaxes(type='log', tickformat='$,.0f', title_text='', row=1, col=1)
     fig.update_yaxes(title_text='Secured/Mcap', row=2, col=1)
     fig.update_yaxes(title_text='Z-score (σ)', row=3, col=1)
@@ -362,5 +363,5 @@ if __name__ == '__main__':
                 title='ETH Model Price',
                 subtitle=subtitle,
                 note='Combined TVL model (stablecoins + DeFi + RWA) · bands at ±1σ and ±2σ',
-                source=SOURCE, default='3Y', min_plot_height=420)
+                source=SOURCE, default='5Y', min_plot_height=420)
     print(f'Saved: {OUTPUT_PATH}')

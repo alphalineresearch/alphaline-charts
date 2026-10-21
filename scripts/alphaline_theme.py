@@ -12,7 +12,7 @@ Usage:
                 subtitle='ETH $3,950 · Model $4,210 · Z (0.42σ)',
                 note='Combined TVL model: stablecoins + DeFi + RWA',
                 source='Yahoo Finance · DeFiLlama',
-                default='3Y')
+                default='5Y')
 
 The page is a flex column that fills the window (or the website's iframe):
 HTML header (title, live reading, range buttons) → Plotly chart → legend →
@@ -159,6 +159,9 @@ def _finish(fig):
         a.font.size = max(a.font.size or MIN_FONT, MIN_FONT)
 
     for tr in fig.data:
+        # plotly_dark outlines every bar; on daily bars the outline swamps the colour
+        if tr.type == 'bar' and tr.marker.line.width is None:
+            tr.marker.line.width = 0
         if getattr(tr, 'hovertemplate', None):
             tr.hovertemplate = _restyle_hover(tr.hovertemplate)
         if getattr(tr, 'textfont', None) is not None and tr.textfont.size:
@@ -191,7 +194,7 @@ def _iso(v):
 
 
 def write_chart(fig, path, *, title, subtitle='', note='', source='',
-                ranges=True, default='3Y', end=None, min_plot_height=360):
+                ranges=True, default='5Y', end=None, min_plot_height=360):
     """Write a branded, self-contained chart page.
 
     ranges   — show the YTD/1Y/3Y/5Y/All buttons (False for short-window charts).

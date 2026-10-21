@@ -62,6 +62,9 @@ BTC_MAX_SUPPLY     = 21_000_000
 
 HASH_NORM_WINDOW   = 730
 SIGNAL_THRESHOLD   = 40
+# Chart zones, set from the score's own history (2016+): under 15 is the bottom
+# quarter of days; 40+ is the top ~10% and is when the signal fires.
+ZONE_LOW           = 15
 
 _HIST_EFF = {
     '2013-01-01': 1000.0, '2014-01-01': 500.0,  '2016-01-01': 200.0,
@@ -376,7 +379,7 @@ def compute_current_score(btc_spot, current_cost, historical_hr, halving_records
     s_halving = float(np.interp(min(float(next_h_days), 730.0), [0, 30, 90, 180, 365, 730], [30, 28, 22, 15, 7, 0]))
     score_now = s_cost + s_hash + s_halving
 
-    zone = 'FAVOURABLE' if score_now >= 66 else 'NEUTRAL' if score_now >= 33 else 'RISK OFF'
+    zone = 'FAVOURABLE' if score_now >= SIGNAL_THRESHOLD else 'NEUTRAL' if score_now >= ZONE_LOW else 'RISK OFF'
     print(f'BTC Risk Score: {score_now:.0f}/100  [{zone}]')
     return score_now
 
@@ -467,6 +470,21 @@ def plot_btc_price_vs_production_cost(btc_px, hist_cost_30d, halving_records,
         hovertemplate='%{x|%Y-%m-%d}<br>1.5× Cost: $%{y:,.0f}<extra></extra>'
     ))
 
+    # Bridge: history ends on the last day blockchain.info has, the projection
+    # starts today, so join the two bands visually (unnamed, no hover)
+    _b_x = [cost_lo.index[-1], proj_dates[0]]
+    fig.add_trace(go.Scatter(
+        x=_b_x + _b_x[::-1],
+        y=[cost_hi.iloc[-1], proj_cost_upper[0], proj_cost[0], cost_lo.iloc[-1]],
+        fill='toself', fillcolor=hex_to_rgba(GREEN_LIT, 0.10),
+        line=dict(width=0), showlegend=False, hoverinfo='skip'
+    ))
+    fig.add_trace(go.Scatter(
+        x=_b_x, y=[cost_lo.iloc[-1], proj_cost[0]],
+        mode='lines', showlegend=False, hoverinfo='skip',
+        line=dict(color=GREEN_LIT, width=2.0, dash='dash')
+    ))
+
     # Projected cost band
     fig.add_trace(go.Scatter(
         x=proj_dates, y=proj_cost,
@@ -555,7 +573,7 @@ def plot_risk_score_history(sig, score_now):
                       row=1, col=1)
 
     # Score threshold lines
-    for threshold in [33, 66]:
+    for threshold in [ZONE_LOW, SIGNAL_THRESHOLD]:
         fig.add_hline(y=threshold, line_color=hex_to_rgba(MIST, 0.25),
                       line_width=0.5, line_dash='dot', row=1, col=1)
 
@@ -655,7 +673,9 @@ def plot_risk_score_history(sig, score_now):
                   row=2, col=1)
 
     # Zone labels
-    for y_mid, label, color in [(16, 'RISK OFF', RED_LIT), (49, 'NEUTRAL', GOLD), (83, 'FAVOURABLE', GREEN_LIT)]:
+    for y_mid, label, color in [(ZONE_LOW / 2, 'RISK OFF', RED_LIT),
+                                (ZONE_LOW + (SIGNAL_THRESHOLD - ZONE_LOW) / 2, 'NEUTRAL', GOLD),
+                                (SIGNAL_THRESHOLD + 8, 'FAVOURABLE', GREEN_LIT)]:
         fig.add_annotation(
             xref='paper', x=0.995, yref='y', y=y_mid, text=label, showarrow=False,
             font=dict(family='Courier New, monospace', size=8, color=color),
@@ -885,7 +905,7 @@ if __name__ == '__main__':
                 subtitle=(f'<b>BTC ${_last_px:,.0f}</b> · cost to mine ${_cost_now:,.0f} · '
                           f'{pct((_last_px / _cost_now - 1) * 100, 0)} vs. cost · {date_long(_last_day)}'),
                 note='Miner production cost with a band to 1.5×, plus the base-scenario projection to 2032',
-                source=SOURCE, default='3Y', end=_last_day)
+                source=SOURCE, default='5Y', end=_last_day)
     print(f'Saved: {OUTPUT_COST}')
 
     # Chart 7
@@ -895,7 +915,7 @@ if __name__ == '__main__':
                 title='BTC Opportunity Signal',
                 subtitle=f'{_sub_score} · BTC ${_last_px:,.0f}',
                 note=f'Shading = days since the signal fired (score ≥ {SIGNAL_THRESHOLD})',
-                source=SOURCE, default='3Y', end=sig.index[-1], min_plot_height=420)
+                source=SOURCE, default='5Y', end=sig.index[-1], min_plot_height=420)
     print(f'Saved: {OUTPUT_HISTORY}')
 
     # Chart 7b
@@ -905,7 +925,7 @@ if __name__ == '__main__':
                 title='BTC Opportunity Signal: Recency',
                 subtitle=f'{_sub_score} · BTC ${_last_px:,.0f}',
                 note=f'Colour = days since the signal fired (score ≥ {SIGNAL_THRESHOLD}) · 2016+',
-                source=SOURCE, default='3Y', end=sig.index[-1], min_plot_height=420)
+                source=SOURCE, default='5Y', end=sig.index[-1], min_plot_height=420)
     print(f'Saved: {OUTPUT_RECENCY}')
 
     # Chart 7c
@@ -915,7 +935,7 @@ if __name__ == '__main__':
                 title='MSTR vs. BTC Opportunity Signal',
                 subtitle=f'<b>MSTR ${mstr_px.iloc[-1]:,.2f}</b> · BTC score {score_now:.0f}/100 · {_signal}',
                 note=f'BTC signal windows (score ≥ {SIGNAL_THRESHOLD}) mapped onto the MSTR share price',
-                source=SOURCE, default='3Y', end=mstr_px.index[-1], min_plot_height=420)
+                source=SOURCE, default='5Y', end=mstr_px.index[-1], min_plot_height=420)
     print(f'Saved: {OUTPUT_MSTR}')
 
     print('\n=== All 4 charts complete ===')
