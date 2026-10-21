@@ -212,13 +212,15 @@ def _iso(v):
 
 
 def write_chart(fig, path, *, title, subtitle='', note='', source='',
-                ranges=True, default='5Y', end=None, min_plot_height=360):
+                ranges=True, default='5Y', end=None, min_plot_height=360, fit_y=()):
     """Write a branded, self-contained chart page.
 
     ranges   — show the YTD/1Y/3Y/5Y/All buttons (False for short-window charts).
     default  — window on load: one of RANGE_BUTTONS.
     end      — last real data date the windows count back from. Defaults to the
                latest x in the figure; pass it when a projection runs past today.
+    fit_y    — y axes ('yaxis3' etc.) fitted to the data even though they hold
+               an area filled to zero (by default those keep a zero baseline).
     The 'All' button restores the x range the script set; without one it runs
     from the first date to `end` (+3%).
     """
@@ -255,6 +257,7 @@ def write_chart(fig, path, *, title, subtitle='', note='', source='',
         end=_iso(end) if end is not None else None,
         all=all_range,
         fixedY=fixed_y,
+        fitY=list(fit_y),
         xKeys=x_keys,
         legend=want_legend,
         fontLoaded=FONT_STACK_LOAD,
@@ -451,7 +454,7 @@ _POST_SCRIPT = r"""
       var e = ext[ya] || (ext[ya] = { min: Infinity, max: -Infinity, log: isLog });
       var isBar = tr.type === 'bar';
       // areas filled down to zero (or stacked) keep their zero baseline
-      if (!isLog && (tr.stackgroup || tr.fill === 'tozeroy')) e.zero = true;
+      if (!isLog && (tr.stackgroup || tr.fill === 'tozeroy') && C.fitY.indexOf(ya) < 0) e.zero = true;
       cd[i].forEach(function (p) {
         var x = isBar ? p.p : p.x, y;
         if (x == null || x < lo || x > hi) return;
@@ -471,7 +474,9 @@ _POST_SCRIPT = r"""
       var a = e.log ? Math.log10(e.min) : e.min, b = e.log ? Math.log10(e.max) : e.max;
       if (e.zero && a >= 0) a = 0;
       var pad = (b - a) * 0.06 || (e.log ? 0.05 : Math.abs(a) * 0.05 || 1);
-      upd[ya + '.range'] = [e.zero && a === 0 ? 0 : a - pad, b + pad];
+      // fitted axes get extra room below for labels under the lows
+      var padLo = C.fitY.indexOf(ya) >= 0 ? pad * 3 : pad;
+      upd[ya + '.range'] = [e.zero && a === 0 ? 0 : a - padLo, b + pad];
       upd[ya + '.autorange'] = false;
       if (e.log) {
         // our own tick values; any hand-set tick labels no longer line up

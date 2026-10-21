@@ -214,34 +214,45 @@ def plot_btc_copper_gold_bb_squeeze(btc_a, btc_ind, sq, sq_on, cu_au, cu_au_ma20
     )
 
     # ── Row 1: BTC Price + Bands ──────────────────────────────────────────────
+    # Bands as filled shapes. In BTC's steepest years the lower band falls
+    # below $0, which a log axis can't draw, so those months are left blank
+    # rather than filled down to the bottom of the panel.
+    def _band(upper, lower):
+        ok = (lower > 0) & upper.notna()
+        xs, ys = [], []
+        for _, seg in pd.DataFrame({'u': upper, 'l': lower})[ok].groupby((~ok).cumsum()[ok]):
+            xs += list(seg.index) + list(seg.index[::-1]) + [None]
+            ys += list(seg['u']) + list(seg['l'][::-1]) + [None]
+        return xs, ys
+
+    def _pos(s):
+        return s.where(s > 0)
+
+    _x, _y = _band(btc_ind['kc_upper'], btc_ind['kc_lower'])
     fig.add_trace(go.Scatter(
-        x=close.index, y=btc_ind['kc_upper'],
-        line=dict(color='rgba(0,0,0,0)', width=0),
-        showlegend=False, hoverinfo='skip'
+        x=_x, y=_y, fill='toself', fillcolor=hex_to_rgba(STEEL, 0.18),
+        line=dict(width=0), name='Keltner Channel', legendgroup='kc', hoverinfo='skip'
     ), row=1, col=1)
     fig.add_trace(go.Scatter(
-        x=close.index, y=btc_ind['kc_lower'],
-        fill='tonexty', fillcolor=hex_to_rgba(STEEL, 0.18),
+        x=close.index, y=_pos(btc_ind['kc_lower']),
         line=dict(color=STEEL, width=0.6),
-        name='Keltner Channel', hoverinfo='skip'
+        showlegend=False, legendgroup='kc', hoverinfo='skip'
     ), row=1, col=1)
 
+    _x, _y = _band(btc_ind['bb_upper'], btc_ind['bb_lower'])
     fig.add_trace(go.Scatter(
-        x=close.index, y=btc_ind['bb_upper'],
-        line=dict(color='rgba(0,0,0,0)', width=0),
-        showlegend=False, hoverinfo='skip'
+        x=_x, y=_y, fill='toself', fillcolor=hex_to_rgba(NAVY_LIT, 0.50),
+        line=dict(width=0), name='Bollinger Bands', legendgroup='bb', hoverinfo='skip'
     ), row=1, col=1)
     fig.add_trace(go.Scatter(
-        x=close.index, y=btc_ind['bb_lower'],
-        fill='tonexty', fillcolor=hex_to_rgba(NAVY_LIT, 0.50),
+        x=close.index, y=_pos(btc_ind['bb_lower']),
         line=dict(color=GOLD_DIM, width=0.7, dash='dot'),
-        name='Bollinger Bands', hoverinfo='skip'
+        showlegend=False, legendgroup='bb', hoverinfo='skip'
     ), row=1, col=1)
-
     fig.add_trace(go.Scatter(
         x=close.index, y=btc_ind['bb_upper'],
         line=dict(color=GOLD_DIM, width=0.7, dash='dot'),
-        showlegend=False, hoverinfo='skip'
+        showlegend=False, legendgroup='bb', hoverinfo='skip'
     ), row=1, col=1)
     fig.add_trace(go.Scatter(
         x=close.index, y=btc_ind['bb_mid'],
@@ -314,9 +325,9 @@ def plot_btc_copper_gold_bb_squeeze(btc_a, btc_ind, sq, sq_on, cu_au, cu_au_ma20
             line=dict(color=color, width=0.9, dash=dash))
 
     fig.add_annotation(
-        xref='x2 domain', yref='y2', x=0.995, y=entry_threshold, yshift=-9,
+        xref='x2 domain', yref='y2', x=0.005, y=entry_threshold, yshift=9,
         text=f'entry zone ({entry_threshold:.1f}%)', showarrow=False,
-        font=dict(color=CYAN), xanchor='right',
+        font=dict(color=CYAN), xanchor='left',
     )
 
     # ── Row 3: Copper/Gold Ratio ──────────────────────────────────────────────
@@ -387,7 +398,7 @@ def plot_btc_copper_gold_bb_squeeze(btc_a, btc_ind, sq, sq_on, cu_au, cu_au_ma20
     apply_theme(fig)
     fig.update_yaxes(row=1, col=1, type='log', tickformat='$,.2~f', title_text='BTC Price (log)')
     fig.update_yaxes(row=2, col=1, title_text='Squeeze %', ticksuffix='%')
-    fig.update_yaxes(row=3, col=1, rangemode='normal', range=[0.1, None], title_text='Cu/Au ×100')
+    fig.update_yaxes(row=3, col=1, title_text='Cu/Au ×100')
 
     # Subplot titles: small panel labels, top-left of each panel
     for ann in fig.layout.annotations:
@@ -431,5 +442,6 @@ if __name__ == '__main__':
                 subtitle=subtitle,
                 note='Cyan bands = BTC Bollinger squeeze in its bottom 20th percentile · '
                      'cyan ▲ = copper/gold cycle low · gold ◆ = copper/gold breakout above its 20-month MA',
-                source='Yahoo Finance · blockchain.info', default='All', min_plot_height=480)
+                source='Yahoo Finance · blockchain.info', default='All', min_plot_height=480,
+                fit_y=('yaxis3',))
     print(f'Saved: {OUTPUT_PATH}')
