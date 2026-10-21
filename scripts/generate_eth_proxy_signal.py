@@ -20,6 +20,8 @@ from plotly.subplots import make_subplots
 from sklearn.linear_model import LinearRegression
 import yfinance as yf
 
+from alphaline_theme import apply_theme, write_chart, pct, sigma, date_long
+
 # ════════════════════════════════════════════
 # SIGNAL THRESHOLDS
 # ════════════════════════════════════════════
@@ -35,8 +37,6 @@ OUTPUT_PATH = os.path.join('docs', 'eth_proxy_signal.html')
 # ════════════════════════════════════════════
 # ALPHALINE BRAND COLORS
 # ════════════════════════════════════════════
-NAVY      = '#0A1628'
-NAVY_MID  = '#102240'
 GOLD      = '#D4A843'
 WHITE     = '#F8FAFB'
 MIST      = '#7A8F9F'
@@ -44,54 +44,10 @@ STEEL     = '#374D61'
 GREEN_LIT = '#2ABF7A'
 TEAL      = '#2ABF7A'
 
-CHART_WIDTH  = 1100
-CHART_HEIGHT = 850
-
 
 def hex_to_rgba(h, a=0.35):
     h = h.lstrip('#')
     return f'rgba({int(h[0:2],16)},{int(h[2:4],16)},{int(h[4:6],16)},{a})'
-
-
-# ════════════════════════════════════════════
-# ALPHALINE CHART TEMPLATE
-# ════════════════════════════════════════════
-def alphaline_layout(fig, title, height=CHART_HEIGHT, subtitle='',
-                     source='alphalineresearch.com  |  Yahoo Finance · DeFiLlama'):
-    fig.update_layout(
-        template='plotly_dark',
-        paper_bgcolor=NAVY, plot_bgcolor=NAVY_MID,
-        height=height, autosize=True,
-        title=dict(
-            text=(
-                f'<span style="font-family:Georgia,serif; font-size:15px; color:{WHITE};">{title}</span>'
-                f'<br><span style="font-family:Courier New,monospace; font-size:8px; color:{GOLD};">ALPHALINE RESEARCH</span>'
-                + (f'<br><span style="font-family:Courier New,monospace; font-size:9px; color:{MIST};">{subtitle}</span>' if subtitle else '')
-            ),
-            x=0.02, xanchor='left', y=0.985, yanchor='top'
-        ),
-        font=dict(family='Courier New, monospace', color=MIST, size=10),
-        margin=dict(l=40, r=20, t=80, b=130),
-        xaxis=dict(gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5, zeroline=False,
-                   showspikes=True, spikecolor=MIST, spikethickness=1, spikedash='dot'),
-        yaxis=dict(gridcolor='rgba(212,168,67,0.06)', gridwidth=0.5, zeroline=False),
-        hoverlabel=dict(bgcolor=NAVY_MID, bordercolor=GOLD,
-                        font=dict(family='Courier New, monospace', size=11, color=WHITE)),
-        legend=dict(
-            bgcolor='rgba(10,22,40,0.0)', bordercolor='rgba(0,0,0,0)', borderwidth=0,
-            font=dict(size=9, color=MIST),
-            orientation='h', x=0.5, xanchor='center',
-            y=-0.11, yanchor='top',
-            tracegroupgap=0,
-        ),
-        annotations=[
-            dict(text=f'Source: {source}', xref='paper', yref='paper',
-                 x=0.99, y=-0.035, xanchor='right', yanchor='top',
-                 font=dict(family='Courier New, monospace', size=8, color=STEEL), showarrow=False),
-
-        ],
-    )
-    return fig
 
 
 # ════════════════════════════════════════════
@@ -337,13 +293,6 @@ def plot_eth_proxy_signal(df, sig_all):
         hovertemplate='%{x|%Y-%m-%d}<br>ETH: $%{y:,.0f}<extra></extra>'
     ), row=1, col=1)
 
-    fig.add_annotation(
-        x=d.index[-1], y=d['eth_price'].iloc[-1],
-        text=f'  ${d["eth_price"].iloc[-1]:,.0f}',
-        showarrow=False, xanchor='left',
-        font=dict(family='Courier New, monospace', size=10, color=GOLD)
-    )
-
     if len(s_all):
         fig.add_trace(go.Scatter(
             x=s_all.index, y=s_all['eth_price'],
@@ -384,10 +333,11 @@ def plot_eth_proxy_signal(df, sig_all):
             y0=thresh, y1=thresh,
             line=dict(color=color, width=0.8, dash='dot'),
             row=2, col=1)
+        # label inside the right edge so it never clips
         fig.add_annotation(
-            x=rv.index[-1], y=thresh,
-            text=f'  {label}', showarrow=False, xanchor='left',
-            font=dict(family='Courier New, monospace', size=8, color=color),
+            xref='x domain', x=0.995, y=thresh, yshift=8,
+            text=label, showarrow=False, xanchor='right',
+            font=dict(color=MIST if color == STEEL else color),
             row=2, col=1)
 
     if len(s_all):
@@ -399,27 +349,23 @@ def plot_eth_proxy_signal(df, sig_all):
             hovertemplate='%{x|%Y-%m-%d}<br>RV ratio: %{y:.2f}<br>Confluence: all 3<extra></extra>'
         ), row=2, col=1)
 
-    # Layout
-    title    = 'ETH RV7/RV30 Proxy Signal'
-    subtitle = '● Confluence = Vol Surprise + Drawdown + Near Model Price'
-    alphaline_layout(fig, title, subtitle=subtitle, height=CHART_HEIGHT)
-    fig.update_layout(
-        showlegend=True,
-        legend=dict(bgcolor='rgba(10,22,40,0.0)', bordercolor='rgba(0,0,0,0)', borderwidth=0,
-                    font=dict(size=9, color=MIST),
-                    orientation='h', x=0.5, xanchor='center',
-                    y=-0.09, yanchor='top', tracegroupgap=0),
-    )
-    fig.update_yaxes(
-        type='log',
-        tickmode='array',
-        tickvals=[100, 300, 1_000, 3_000, 10_000, 30_000],
-        ticktext=['$0.1K', '$0.3K', '$1K', '$3K', '$10K', '$30K'],
-        title_text='ETH Price (log)', row=1, col=1
-    )
-    fig.update_yaxes(title_text='RV7/RV30 ratio', row=2, col=1)
+    # ── Live reading for the page subtitle ──
+    last = d.iloc[-1]
+    on_now = bool(sig_all.reindex(d.index, fill_value=False).iloc[-1])
+    subtitle = '  ·  '.join([
+        f'<b>RV7/RV30 {last["rv_ratio"]:.2f}×</b> (fires above {RV_RATIO_THRESH}×)',
+        f'{pct(last["dd_90d"])} from 90-day high',
+        f'model z {sigma(last["zscore"])}',
+        'confluence on' if on_now else
+        (f'last confluence {date_long(s_all.index[-1])}' if len(s_all) else 'no confluence yet'),
+        date_long(d.index[-1]),
+    ])
+
+    apply_theme(fig)
+    fig.update_yaxes(type='log', tickformat='$,.0f', title_text='ETH Price (log)', row=1, col=1)
+    fig.update_yaxes(title_text='RV7/RV30 ratio', ticksuffix='×', row=2, col=1)
     fig.update_xaxes(title_text='', row=2, col=1)
-    return fig
+    return fig, subtitle
 
 
 # ════════════════════════════════════════════
@@ -430,7 +376,11 @@ if __name__ == '__main__':
 
     print('=== Building ETH Proxy Confluence Signal chart ===')
     df, sig_all, r2 = build_dataframe()
-    fig = plot_eth_proxy_signal(df, sig_all)
-
-    fig.write_html(OUTPUT_PATH, include_plotlyjs='cdn', config={'responsive': True})
+    fig, subtitle = plot_eth_proxy_signal(df, sig_all)
+    write_chart(fig, OUTPUT_PATH,
+                title='ETH Volatility Shock Signal',
+                subtitle=subtitle,
+                note=(f'Confluence (green) = 7-day realised vol above {RV_RATIO_THRESH}× the 30-day, '
+                      f'price {DD_THRESH:.0f}%+ below its 90-day high, and at or below −1σ on the combined TVL model'),
+                source='Yahoo Finance · DeFiLlama', default='5Y', min_plot_height=420)
     print(f'Saved: {OUTPUT_PATH}')
