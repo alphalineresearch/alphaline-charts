@@ -172,14 +172,15 @@ def plot_trend(d, ticker, price_color):
         x=d.index, y=d['ma200'], mode='lines', name='200-day MA',
         line=dict(color=MA200_COLOR, width=1.2, dash='dot'), opacity=0.75,
         hovertemplate=hover('200-day MA', '$%{y:,.0f}')), row=1, col=1)
-    # price coloured by trend state: one trace per state, each also holding the next
-    # day's point so the segments join up
+    # price coloured by trend state: one trace per state, each also holding the previous
+    # day's point so the segments join up and the segment into a day takes that day's
+    # colour (a change of state shows on the day it happens)
     state = pd.cut(d['score'], [-1, 1, 2, 4], labels=False)          # 0 down · 1 mixed · 2 up
     score = d['score'].fillna(-1).astype(int)
     trend = np.column_stack([score.where(score >= 0, 0),
                              [SCORE_WORDS[v] if v >= 0 else '' for v in score]])
     for k, (name, color) in enumerate(LINE_STATES):
-        on = (state == k) | (state.shift(1) == k)
+        on = (state == k) | (state.shift(-1) == k)
         fig.add_trace(go.Scatter(
             x=d.index, y=d['close'].where(on), mode='lines', name=name,
             line=dict(color=color, width=1.8), connectgaps=False, customdata=trend,
