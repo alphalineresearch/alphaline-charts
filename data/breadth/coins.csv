@@ -3463,6 +3463,7 @@ id,symbol,slug,rwa
 16604,1ECO,1eco,0
 16612,NOS,nosana,0
 16678,WRLD,nft-worlds,0
+16690,ABEY,abeychain,0
 16868,SHDW,genesysgo-shadow,0
 16876,ALI,alethea-artificial-liquid-intelligence-token,0
 16882,SQR,magic-square,0
@@ -3838,6 +3839,7 @@ id,symbol,slug,rwa
 29814,ETHFI,ether-fi-ethfi,0
 29835,IO,io-net,0
 29839,MGC,meta-games-coin,0
+29862,GROW,grow,0
 29870,BOME,book-of-meme,0
 29879,ANDY,boysclubandy,0
 29884,DSYNC,destra-network,0
@@ -4426,6 +4428,7 @@ id,symbol,slug,rwa
 39548,ESP,espresso,0
 39549,FIDD,fidelity-digital-dollar,0
 39564,OPN,opinion,0
+39592,YELLOW,yellow,0
 39595,ROBO,fabric-foundation,0
 39611,MANTRA,mantra-new,0
 39614,VBWBTC,vaultbridge-bridged-wbtc-katana,0
@@ -4489,6 +4492,7 @@ id,symbol,slug,rwa
 40643,preSPCX,spacex-pre-ipo-stock-republic,1
 40671,OUSD,open-usd,0
 40786,SKHYx,sk-hynix-tokenized-stock-xstock,1
+40794,SOXLB,semicon-bull-3x-etf-tokenized-bstocks,1
 40809,CASHCAT,cash-cat,0
 40859,INDEX,the-index-finance,0
 40925,AI,artificial-inu-ai,0
@@ -4497,8 +4501,10 @@ id,symbol,slug,rwa
 40946,ANSEMCAT,ansem-cat,0
 40978,STONKBROKER,stonkbroker,0
 40980,DOS,dappos,0
+41010,POPMTx,pop-mart-international-tokenized-stock-xstock,1
+41012,XIAOx,xiaomi-tokenized-stock-xstock,1
 41861,牛来,niu-lai,0
-41876,PRL,pearlresearch,0
+41876,PEARL,pearlresearch,0
 41878,CATE,catecoin-cate-meme,0
 41899,CHUMP,chump-coin,0
 41902,BASECAT,basecat,0
@@ -4511,4 +4517,5 @@ id,symbol,slug,rwa
 42044,LAPTOP,hunter-biden-s-laptop,0
 42253,CT,concrete,0
 42398,POD,dolphin,0
+42525,AXIS,axis-robotics,0
 42538,RWUSD,rwusd,1
