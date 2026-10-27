@@ -2,7 +2,8 @@
 generate_btc_copper_gold_bb_squeeze.py
 Alphaline Research — BTC Monthly BB Squeeze × Copper/Gold Ratio
 
-Fetches BTC daily price from blockchain.info (resampled to monthly OHLC),
+Fetches BTC daily OHLC from Yahoo (BTC-USD, Sep 2014 on) and blockchain.info
+closes before that, resampled to monthly OHLC candles,
 Copper (HG=F) and Gold (GC=F) monthly futures from Yahoo Finance.
 No API keys required.
 Writes btc_copper_gold_bb_squeeze.html to docs/.
@@ -19,7 +20,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import yfinance as yf
 
-from alphaline_theme import apply_theme, write_chart, TEXT_2
+from alphaline_theme import apply_theme, write_chart, pct, TEXT_2
 
 # ════════════════════════════════════════════
 # CONFIG
@@ -112,6 +113,18 @@ def fetch_blockchain_chart(chart_name):
     return df[~df.index.duplicated(keep='last')]
 
 
+def fetch_yf_daily_ohlc(ticker):
+    raw = yf.download(ticker, period='max', interval='1d',
+                      progress=False, auto_adjust=True)
+    if isinstance(raw.columns, pd.MultiIndex):
+        raw.columns = [c[0].lower() for c in raw.columns]
+    else:
+        raw.columns = [c.lower() for c in raw.columns]
+    raw.index = pd.to_datetime(raw.index).tz_localize(None).normalize()
+    raw.index.name = 'date'
+    return raw[['open', 'high', 'low', 'close']].dropna()
+
+
 def fetch_yf_monthly(ticker):
     raw = yf.download(ticker, period='max', interval='1mo',
                       progress=False, auto_adjust=True)
@@ -134,8 +147,22 @@ def build_dataframe():
     btc_daily.columns = ['close']
     btc_daily = btc_daily[btc_daily['close'] > 0]
 
-    btc_m = btc_daily['close'].resample('MS').agg(
-        open='first', high='max', low='min', close='last'
+    # Yahoo's real daily OHLC from Sep 2014; before that blockchain.info has
+    # closes only, so those days' open/high/low are the close.
+    print('Fetching BTC daily OHLC (Yahoo BTC-USD)...')
+    try:
+        yahoo = fetch_yf_daily_ohlc('BTC-USD')
+    except Exception as e:  # noqa: BLE001
+        print(f'  ! Yahoo BTC-USD unavailable ({e}); blockchain.info closes only')
+        yahoo = pd.DataFrame(columns=['open', 'high', 'low', 'close'])
+    early = btc_daily[btc_daily.index < yahoo.index[0]] if len(yahoo) else btc_daily
+    early = pd.DataFrame({c: early['close'] for c in ['open', 'high', 'low', 'close']})
+    btc_ohlc = pd.concat([early, yahoo]).sort_index()
+
+    # One bar per month, labelled on the 1st (as the copper/gold series are);
+    # the current month is a partial, month-to-date bar
+    btc_m = btc_ohlc.resample('MS').agg(
+        {'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last'}
     ).dropna()
     print(f'  BTC monthly: {btc_m.index[0].date()} → {btc_m.index[-1].date()}  ({len(btc_m)} rows)')
 
@@ -159,7 +186,11 @@ def build_dataframe():
     cu_au = (copper_a / gold_a) * 100   # scaled ×100 for readability
     print(f'Aligned range: {valid_idx[0].date()} → {valid_idx[-1].date()} ({len(valid_idx)} months)')
 
-    btc_ind = compute_squeeze(btc_a)
+    # Bands and squeeze on the candles' monthly closes, but Keltner's ATR keeps
+    # the high/low of daily closes it has always used — intraday wicks would
+    # widen the channel and move every squeeze reading
+    close_hl = btc_ohlc['close'].resample('MS').agg(['max', 'min']).loc[valid_idx]
+    btc_ind = compute_squeeze(btc_a.assign(high=close_hl['max'], low=close_hl['min']))
     sq      = btc_ind['squeeze_pct']
     sq_on   = btc_ind['squeeze_on']
 
@@ -260,11 +291,25 @@ def plot_btc_copper_gold_bb_squeeze(btc_a, btc_ind, sq, sq_on, cu_au, cu_au_ma20
         name='BB Mid (20M SMA)', hoverinfo='skip'
     ), row=1, col=1)
 
-    fig.add_trace(go.Scatter(
-        x=close.index, y=close.values,
-        line=dict(color=GOLD, width=2.2),
-        name='BTC/USD (monthly close)',
-        hovertemplate='%{x|%b %Y}<br>BTC: $%{y:,.0f}<extra></extra>',
+    # Monthly candles: up month green, down month red, 1px wicks
+    chg = close.pct_change() * 100
+    chg.iloc[0] = (close.iloc[0] / btc_a['open'].iloc[0] - 1) * 100
+    is_mtd = close.index[-1] == pd.Timestamp.today().normalize().replace(day=1)
+    hover_txt = [
+        f'{d:%b %Y}' + (' · month to date' if (is_mtd and i == len(close) - 1) else '')
+        + f'<br>O ${o:,.0f}<br>H ${h:,.0f}<br>L ${l:,.0f}<br>C ${c:,.0f}'
+        + f'<br>Month {pct(p)}'
+        for i, (d, o, h, l, c, p) in enumerate(zip(
+            close.index, btc_a['open'], btc_a['high'], btc_a['low'], close, chg))
+    ]
+    fig.add_trace(go.Candlestick(
+        x=close.index,
+        open=btc_a['open'], high=btc_a['high'], low=btc_a['low'], close=close,
+        increasing=dict(line=dict(color=GREEN_LIT, width=1), fillcolor=GREEN_LIT),
+        decreasing=dict(line=dict(color=RED_LIT, width=1), fillcolor=RED_LIT),
+        whiskerwidth=0,
+        name='BTC/USD (monthly candles)',
+        text=hover_txt, hoverinfo='text',
     ), row=1, col=1)
 
     # Cycle low markers on BTC panel
@@ -395,7 +440,20 @@ def plot_btc_copper_gold_bb_squeeze(btc_a, btc_ind, sq, sq_on, cu_au, cu_au_ma20
         )
 
     # ── Axis styling ──────────────────────────────────────────────────────────
+    # Plotly always draws candlesticks beneath line/area traces on the same
+    # axes, so the band fills would dim them. Candles and markers go on an
+    # overlay axis locked to the price axis, which is drawn on top.
+    # The bands stay on the price axis but out of its fit: the lower band dives
+    # far below price in the steep years and would squash the candles.
+    for tr in fig.data:
+        if tr.yaxis == 'y' and (tr.type == 'candlestick' or tr.mode == 'markers'):
+            tr.yaxis = 'y4'
+        elif tr.yaxis == 'y':
+            tr.meta = 'nofit'
+    fig.update_layout(yaxis4=dict(overlaying='y', matches='y', type='log', visible=False))
+
     apply_theme(fig)
+    fig.update_xaxes(rangeslider_visible=False)   # Plotly adds one under candlesticks
     fig.update_yaxes(row=1, col=1, type='log', tickformat='$,.2~f', title_text='BTC Price (log)')
     fig.update_yaxes(row=2, col=1, title_text='Squeeze %', ticksuffix='%')
     fig.update_yaxes(row=3, col=1, title_text='Cu/Au ×100')
@@ -436,12 +494,13 @@ if __name__ == '__main__':
         cycle_low_dates, breakout_dates, entry_threshold
     )
 
-    # long-cycle chart: opens on the full history
+    # opens on 5Y: enough months for the candles to read; All has the full history
     write_chart(fig, OUTPUT_PATH,
                 title='BTC Monthly Squeeze × Copper/Gold Cycle',
                 subtitle=subtitle,
                 note='Cyan bands = BTC Bollinger squeeze in its bottom 20th percentile · '
-                     'cyan ▲ = copper/gold cycle low · gold ◆ = copper/gold breakout above its 20-month MA',
-                source='Yahoo Finance · blockchain.info', default='All', min_plot_height=480,
+                     'cyan ▲ = copper/gold cycle low · gold ◆ = copper/gold breakout above its 20-month MA'
+                     '<br>Before 2014, monthly highs and lows use daily closes.',
+                source='Yahoo Finance · blockchain.info', default='5Y', min_plot_height=480,
                 fit_y=('yaxis3',))
     print(f'Saved: {OUTPUT_PATH}')

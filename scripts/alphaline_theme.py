@@ -231,6 +231,8 @@ def write_chart(fig, path, *, title, subtitle='', note='', source='',
                latest x in the figure; pass it when a projection runs past today.
     fit_y    — y axes ('yaxis3' etc.) fitted to the data even though they hold
                an area filled to zero (by default those keep a zero baseline).
+               A trace with meta='nofit' is left out of the fit (it may run
+               off the panel), e.g. bands that would squash the price.
     The 'All' button restores the x range the script set; without one it runs
     from the first date to `end` (+3%).
     """
@@ -402,12 +404,22 @@ def _refit_y(fig, L, fixed_y, fit_y):
     barmode = L.barmode or 'group'
     ext, stacks = {}, {}
     for tr in fig.data:
-        if tr.visible not in (None, True) or tr.type not in ('scatter', 'scattergl', 'bar'):
+        if tr.visible not in (None, True) or tr.meta == 'nofit':
+            continue
+        if tr.type in ('candlestick', 'ohlc'):
+            # fit to the wicks: highs and lows, as y pairs at each x
+            if tr.high is None or tr.low is None:
+                continue
+            tr = go.Scatter(x=list(tr.x) * 2, y=list(tr.high) + list(tr.low),
+                            xaxis=tr.xaxis, yaxis=tr.yaxis)
+        if tr.type not in ('scatter', 'scattergl', 'bar'):
             continue
         if tr.y is None or (tr.type == 'bar' and tr.orientation == 'h'):
             continue
         ya = 'yaxis' + (tr.yaxis or 'y')[1:]
         xa = 'xaxis' + (tr.xaxis or 'x')[1:]
+        if L[ya].matches:                       # locked axis: fitted with the one it matches
+            ya = 'yaxis' + L[ya].matches[1:]
         if ya in fixed_y or L[ya].type == 'category':
             continue
         is_log = L[ya].type == 'log'
@@ -703,8 +715,10 @@ _POST_SCRIPT = r"""
   function refit() {
     var fl = gd._fullLayout, cd = gd.calcdata || [], ext = {};
     gd._fullData.forEach(function (tr, i) {
-      if (tr.visible !== true || !cd[i]) return;
+      if (tr.visible !== true || !cd[i] || tr.meta === 'nofit') return;
       var ya = axName(tr.yaxis || 'y'), xa = fl[axName(tr.xaxis || 'x')];
+      // an axis locked to another (matches) is fitted as part of that one
+      if (fl[ya] && fl[ya].matches) ya = axName(fl[ya].matches);
       if (C.fixedY.indexOf(ya) >= 0 || !fl[ya] || !xa || !xa.range) return;
       if (fl[ya].type === 'category') return;
       var lo = xa.r2l(xa.range[0]), hi = xa.r2l(xa.range[1]), isLog = fl[ya].type === 'log';
@@ -712,6 +726,19 @@ _POST_SCRIPT = r"""
       var isBar = tr.type === 'bar';
       // areas filled down to zero (or stacked) keep their zero baseline
       if (!isLog && (tr.stackgroup || tr.fill === 'tozeroy') && C.fitY.indexOf(ya) < 0) e.zero = true;
+      if (tr.type === 'candlestick' || tr.type === 'ohlc') {
+        // fit to the wicks
+        (tr.x || []).forEach(function (xv, j) {
+          var x = xa.d2l(xv);
+          if (x == null || x < lo || x > hi) return;
+          [tr.high[j], tr.low[j]].forEach(function (y) {
+            if (y == null || !isFinite(y) || (isLog && y <= 0)) return;
+            if (y < e.min) e.min = y;
+            if (y > e.max) e.max = y;
+          });
+        });
+        return;
+      }
       cd[i].forEach(function (p) {
         var x = isBar ? p.p : p.x, y;
         if (x == null || x < lo || x > hi) return;
@@ -794,7 +821,11 @@ _POST_SCRIPT = r"""
       b.type = 'button';
       var fill = tr.fill && tr.fill !== 'none', mk = tr.mode && tr.mode.indexOf('lines') < 0;
       var sym = mk && tr.marker && String(tr.marker.symbol || '');
-      if (sym && /triangle-(up|down)/.test(sym)) {
+      if (tr.type === 'candlestick' || tr.type === 'ohlc') {
+        // half up colour, half down colour
+        sw.className = 'box';
+        sw.style.background = 'linear-gradient(90deg, ' + tr.increasing.line.color + ' 50%, ' + tr.decreasing.line.color + ' 50%)';
+      } else if (sym && /triangle-(up|down)/.test(sym)) {
         // marker series: show the actual glyph (colours can vary per point)
         var mc = tr.marker.color;
         sw.className = 'glyph';
