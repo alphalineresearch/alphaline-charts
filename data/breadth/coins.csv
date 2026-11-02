@@ -4207,6 +4207,7 @@ id,symbol,slug,rwa
 36761,EGL1,egl1,0
 36762,DUSD,standx-dusd,0
 36769,BULLA,bulla-mascot,0
+36770,AIN,infinity-ground,0
 36803,LIBERTY,torch-of-liberty,0
 36804,LUR,lumera-health,0
 36828,USELESS,theuselesscoin,0
@@ -4492,6 +4493,7 @@ id,symbol,slug,rwa
 40643,preSPCX,spacex-pre-ipo-stock-republic,1
 40671,OUSD,open-usd,0
 40786,SKHYx,sk-hynix-tokenized-stock-xstock,1
+40793,GOOGLB,alphabet-tokenized-bstocks,1
 40794,SOXLB,semicon-bull-3x-etf-tokenized-bstocks,1
 40809,CASHCAT,cash-cat,0
 40859,INDEX,the-index-finance,0
@@ -4519,3 +4521,4 @@ id,symbol,slug,rwa
 42398,POD,dolphin,0
 42525,AXIS,axis-robotics,0
 42538,RWUSD,rwusd,1
+42642,PREDICT,predict-fun,0
