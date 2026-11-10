@@ -3353,7 +3353,7 @@ id,symbol,slug,rwa
 11346,RACA,radio-caca,0
 11349,ADAPAD,adapad,0
 11367,AURY,aurory,0
-11374,DAR,mines-of-dalarnia,0
+11374,D,mines-of-dalarnia,0
 11396,JOE,joe,0
 11419,GRAM,gram,0
 11423,VEMP,vempire-ddao,0
@@ -4198,6 +4198,7 @@ id,symbol,slug,rwa
 36576,HUMA,huma-finance,0
 36581,ZEUS,truezeuscoin,0
 36645,XPL,plasma-xpl,0
+36666,TIT,titans-tap,0
 36671,SAHARA,sahara-ai,0
 36707,CBXRP,coinbase-wrapped-xrp,0
 36711,BLOCK,bl0ck,0
@@ -4278,6 +4279,7 @@ id,symbol,slug,rwa
 37374,ERA,caldera,0
 37387,BAS,bnb-attestation-service,0
 37414,ESPORTS,yooldo,0
+37430,TA,trusta-ai,0
 37448,AIH,aihub,0
 37454,IKA,ika,0
 37456,OPEN,openledger,0
@@ -4339,6 +4341,7 @@ id,symbol,slug,rwa
 38371,ZKC,boundless,0
 38376,EVAA,evaa-protocol,0
 38386,USAT,tether-usat,0
+38407,BOLD,liquity-v2,0
 38408,BARD,lombard,0
 38417,RIVER,river,0
 38427,ZBT,zerobase,0
@@ -4505,6 +4508,7 @@ id,symbol,slug,rwa
 40980,DOS,dappos,0
 41010,POPMTx,pop-mart-international-tokenized-stock-xstock,1
 41012,XIAOx,xiaomi-tokenized-stock-xstock,1
+41050,TCENTx,tencent-tokenized-stock-xstock,1
 41861,牛来,niu-lai,0
 41876,PEARL,pearlresearch,0
 41878,CATE,catecoin-cate-meme,0
@@ -4518,6 +4522,8 @@ id,symbol,slug,rwa
 42038,BONER,boner-coin,0
 42044,LAPTOP,hunter-biden-s-laptop,0
 42253,CT,concrete,0
+42290,BNCB,bnb-standard-corporation-tokenized-bstocks,1
+42310,RITUAL,ritual,0
 42398,POD,dolphin,0
 42525,AXIS,axis-robotics,0
 42538,RWUSD,rwusd,1
