@@ -3944,6 +3944,7 @@ id,symbol,slug,rwa
 32272,PUMPBTC,pumpbtc-btc,0
 32289,MIGGLES,mr-miggles,0
 32298,PZETH,pzeth,0
+32299,CLOUD,sanctum-cloud,0
 32306,FBTC,ignition-fbtc,0
 32307,USD0,usual-usd,0
 32372,XUSD,straitsx-xusd,0
@@ -4462,6 +4463,7 @@ id,symbol,slug,rwa
 39880,ASTEROID,asteroid-shiba,0
 39883,AI,gensyn,0
 39903,KAIO,kaio,0
+39918,SNC,scandic-coin,0
 39922,ASSET,real-finance,0
 39923,STRCon,strategy-stretch-perferred-tokenized-stock-ondo,1
 39925,PUSD,polymarket-usd,0
@@ -4506,6 +4508,7 @@ id,symbol,slug,rwa
 40946,ANSEMCAT,ansem-cat,0
 40978,STONKBROKER,stonkbroker,0
 40980,DOS,dappos,0
+40986,MOW,mowcat,0
 41010,POPMTx,pop-mart-international-tokenized-stock-xstock,1
 41012,XIAOx,xiaomi-tokenized-stock-xstock,1
 41050,TCENTx,tencent-tokenized-stock-xstock,1
