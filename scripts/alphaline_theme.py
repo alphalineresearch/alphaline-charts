@@ -659,6 +659,7 @@ h1 { margin: 0 0 4px; font-family: 'Cormorant Garamond', Georgia, serif; font-we
 .al-legend button.off span { text-decoration: line-through; }
 .al-legend i { flex: 0 0 auto; display: inline-block; width: 18px; height: 0; border-top: 2px solid; }
 .al-legend i.box { width: 11px; height: 11px; border: 0; }
+.al-legend i.dot { width: 12px; height: 12px; border: 2px solid; border-radius: 50%; box-sizing: border-box; }
 .al-legend i.glyph { width: auto; height: auto; border: 0; font-style: normal; font-size: 11px; line-height: 1; }
 .al-foot { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center;
            gap: 2px 16px; padding: 4px 20px 10px; font-size: 12px; color: var(--t3); }
@@ -825,6 +826,11 @@ _POST_SCRIPT = r"""
         // half up colour, half down colour
         sw.className = 'box';
         sw.style.background = 'linear-gradient(90deg, ' + tr.increasing.line.color + ' 50%, ' + tr.decreasing.line.color + ' 50%)';
+      } else if (tr.meta === 'legend-dot') {
+        // opt-in: draw the marker as it is on the chart, filled or hollow circle
+        sw.className = 'dot';
+        sw.style.background = tr.marker.color;
+        sw.style.borderColor = tr.marker.line && tr.marker.line.color || tr.marker.color;
       } else if (sym && /triangle-(up|down)/.test(sym)) {
         // marker series: show the actual glyph (colours can vary per point)
         var mc = tr.marker.color;

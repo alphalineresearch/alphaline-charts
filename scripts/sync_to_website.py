@@ -29,6 +29,9 @@ CHARTS = [
     "btc_rsi_annual.html",
     "eth_rsi_annual.html",
     "btc_cost_momentum.html",
+    "btc_rsi_confluence.html",
+    "eth_rsi_confluence.html",
+    "mstr_rsi_confluence.html",
 ]
 
 copied = 0
