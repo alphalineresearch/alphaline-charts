@@ -29,3 +29,6 @@ Master copy: `C:\Users\cwhit\Documents\Alphaline Research\BRAND.md` — read it 
 ## Weekly upkeep (Mondays)
 - `generate_mstr_pnav_heatmap.py`: append Strategy's latest holdings / shares / capital rows (strategy.com ledger, 8-K).
 - `generate_signals.py` `TREASURIES`: update MSTR, ASST, BMNR, SBET holdings, shares, cash, debt, preferred.
+
+## Tweet images
+`python scripts/tweet_images.py "<thread folder>\images.json"` (conda env `alphaline`: it uses kaleido's Chrome) writes 1.png, 2.png, ... next to `images.json`, rebuilt from the Plotly JSON in `docs/<chart>.html`. Each image: `file`, `chart`, `range` (`all` | `5y` | `3y` | `1y` | `ytd` | `[start, end]`), `show` (legend names; omit = all; unknown names error with the list), optional `title`, `subtitle`, and `format` (`portrait` 1080×1350 default, or `wide` 1600×900; both at scale 2). Hidden traces take their legend entries, their legend-only key's shapes (e.g. the recency ribbon) and any empty panel with them. Never edits the chart files.
