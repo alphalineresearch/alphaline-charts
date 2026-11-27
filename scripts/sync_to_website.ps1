@@ -27,7 +27,9 @@ $charts = @(
     "btc_rsi_top_confluence.html",
     "eth_rsi_top_confluence.html",
     "mstr_rsi_top_confluence.html",
-    "btc_time_pain.html"
+    "btc_time_pain.html",
+    "btc_etf_flows.html",
+    "eth_etf_flows.html"
 )
 
 $copied = 0

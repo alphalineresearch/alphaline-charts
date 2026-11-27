@@ -1,6 +1,6 @@
 {
   "updated": "2026-11-27",
-  "count": 33,
+  "count": 34,
   "charts": [
     {
       "file": "btc_copper_gold_bb_squeeze.html",
@@ -93,6 +93,11 @@
       "updated": "2026-11-27"
     },
     {
+      "file": "eth_etf_flows.html",
+      "title": "Eth Etf Flows",
+      "updated": "2026-11-27"
+    },
+    {
       "file": "eth_model_zscore.html",
       "title": "Eth Model Zscore",
       "updated": "2026-11-27"
@@ -170,7 +175,7 @@
   ],
   "signals": {
     "asOf": "2026-11-25",
-    "generated": "2026-11-27T15:19Z",
+    "generated": "2026-11-27T16:25Z",
     "items": [
       {
         "id": "btc-risk",
@@ -292,17 +297,17 @@
           "rows": [
             [
               "MSTR · BTC",
-              "0.96×",
+              "0.98×",
               null
             ],
             [
               "ASST · BTC",
-              "1.64×",
+              "1.65×",
               null
             ],
             [
               "BMNR · ETH",
-              "0.75×",
+              "0.76×",
               null
             ],
             [

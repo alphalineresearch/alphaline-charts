@@ -70,6 +70,15 @@ IBIT_COLOR   = GOLD
 OTHER_COLOR  = '#6F8FB8'         # muted steel-blue: the rest of the field
 NET_COLOR    = WHITE
 
+# Per-asset settings; generate_eth_etf_flows.py passes its own (ETH_CFG).
+BTC_CFG = dict(
+    asset='BTC', unit='BTC', lead='IBIT (BlackRock)', cb_min=CB_MIN_BTC,
+    cb_method='net',                 # 'net': net dollars in ÷ net coins; 'avg': average cost
+    swing=PIVOT_SWING,
+    full_in=SHADE_FULL_IN, full_out=SHADE_FULL_OUT,
+    ticks=[10_000, 15_000, 20_000, 30_000, 50_000, 70_000, 100_000, 150_000, 200_000, 300_000],
+)
+
 UA = ('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
       '(KHTML, like Gecko) Chrome/130.0 Safari/537.36')
 
@@ -84,8 +93,13 @@ def usd_b(v, d=1):
     return f'(${abs(v):,.{d}f}B)' if v < 0 else f'${v:,.{d}f}B'
 
 
-def btc_k(v):
-    return f'({abs(v)/1e3:,.1f}k BTC)' if v < 0 else f'+{v/1e3:,.1f}k BTC'
+def units_k(v, unit='BTC'):
+    return f'({abs(v)/1e3:,.1f}k {unit})' if v < 0 else f'+{v/1e3:,.1f}k {unit}'
+
+
+def price_label(v):
+    """$126k for BTC-sized prices, $4,950 for ETH-sized ones."""
+    return f'${v/1e3:,.0f}k' if v >= 1e4 else f'${v:,.0f}'
 
 
 # ════════════════════════════════════════════
@@ -134,16 +148,16 @@ def fetch_flows():
     ibit  = _series(page, 'aum_etf_blackrock')
     if len(total) < 250:
         raise RuntimeError(f'only {len(total)} days of ETF flows parsed — page layout changed?')
-    df = pd.DataFrame({'total': total, 'ibit': ibit}).fillna(0.0).sort_index()
-    df['other'] = df['total'] - df['ibit']
+    df = pd.DataFrame({'total': total, 'lead': ibit}).fillna(0.0).sort_index()
+    df['other'] = df['total'] - df['lead']
     print(f'    {len(df)} days, {df.index.min():%Y-%m-%d} → {df.index.max():%Y-%m-%d}, '
           f'net {df["total"].sum():,.0f} BTC')
     return df
 
 
-def fetch_btc():
-    print('  Fetching BTC-USD (Yahoo)...')
-    px = yf.download('BTC-USD', start=FIT_START, progress=False, auto_adjust=False)
+def fetch_price(ticker='BTC-USD', start=FIT_START):
+    print(f'  Fetching {ticker} (Yahoo)...')
+    px = yf.download(ticker, start=start, progress=False, auto_adjust=False)
     if isinstance(px.columns, pd.MultiIndex):
         px.columns = px.columns.get_level_values(0)
     px.index = pd.to_datetime(px.index).tz_localize(None).normalize()
@@ -173,13 +187,35 @@ def pivots(wk, swing=PIVOT_SWING):
     return out
 
 
-def build_dataframe():
-    flows = fetch_flows()
-    px = fetch_btc()
+def average_cost(units, usd_b):
+    """Average cost of the coins the ETFs hold: inflows add coins at that day's price,
+    outflows remove coins at the running average cost (so redemptions at low prices
+    don't push the average up, as they do in the net-dollar version)."""
+    held = cost = 0.0
+    out = {}
+    for d, q in units.items():
+        if q > 0:
+            held += q
+            cost += usd_b[d] * 1e9
+        elif q < 0 and held > 0:
+            q_out = min(-q, held)
+            cost -= q_out * cost / held
+            held -= q_out
+        out[d] = cost / held if held > 0 else np.nan
+    return pd.Series(out)
 
-    # Value each day's BTC flow at that day's close
-    close = px['close'].reindex(flows.index, method='ffill')
-    usd = flows.mul(close, axis=0) / 1e9                         # $B
+
+def build_dataframe():
+    return build_from_flows(fetch_flows(), fetch_price('BTC-USD'), BTC_CFG)
+
+
+def build_from_flows(flows, px, cfg, usd=None):
+    """flows: daily net flows in coin units, columns total / lead / other.
+    usd: the same in $B, when the source reports dollars (ETH); otherwise each day's
+    coin flow is valued at that day's close (BTC)."""
+    if usd is None:
+        close = px['close'].reindex(flows.index, method='ffill')
+        usd = flows.mul(close, axis=0) / 1e9                     # $B
 
     # Weekly candles (crypto week ends Sunday)
     launch = flows.index.min()
@@ -196,8 +232,12 @@ def build_dataframe():
     breadth = (flows['total'] > 0).astype(float).rolling(BREADTH_DAYS).mean()
     breadth_w = breadth.resample('W-SUN').last()
 
-    # ETF cost basis: cumulative net dollars in ÷ cumulative net BTC held
-    cost_basis = (usd['total'].cumsum() * 1e9 / flows['total'].cumsum()).where(flows['total'].cumsum() >= CB_MIN_BTC)
+    # ETF cost basis
+    if cfg.get('cb_method', 'net') == 'avg':
+        cost_basis = average_cost(flows['total'], usd['total'])
+    else:   # cumulative net dollars in ÷ cumulative net coins held
+        cost_basis = usd['total'].cumsum() * 1e9 / flows['total'].cumsum()
+    cost_basis = cost_basis.where(flows['total'].cumsum() >= cfg['cb_min'])
     cost_basis[cost_basis.notna().cummax() == False] = np.nan   # start once, don't flicker
     cost_basis_w = cost_basis.resample('W-SUN').last()
 
@@ -208,7 +248,7 @@ def build_dataframe():
 # ════════════════════════════════════════════
 # CHART
 # ════════════════════════════════════════════
-def flow_shade(v, br):
+def flow_shade(v, br, full_in=SHADE_FULL_IN, full_out=SHADE_FULL_OUT):
     """Colour for one week. Hue from the 13-week net flow ($B): green for inflows, red
     for outflows. Every week gets a base tint so regimes read as blocks; depth on top of
     that blends how big the flow is with how broad it is (flow breadth agreeing with the
@@ -216,7 +256,7 @@ def flow_shade(v, br):
     if pd.isna(v):
         return None
     inflow = v > 0
-    size = min(abs(v) / (SHADE_FULL_IN if inflow else SHADE_FULL_OUT), 1.0)
+    size = min(abs(v) / (full_in if inflow else full_out), 1.0)
     if pd.isna(br):
         agree = 0.5
     else:
@@ -228,6 +268,11 @@ def flow_shade(v, br):
 
 
 def plot_btc_etf_flows(d):
+    return plot_etf_flows(d, BTC_CFG)
+
+
+def plot_etf_flows(d, cfg):
+    A, U = cfg['asset'], cfg['unit']
     wk = d['wk']
     roll, roll_btc = d['roll'].dropna(), d['roll_btc'].dropna()
 
@@ -237,7 +282,7 @@ def plot_btc_etf_flows(d):
     # ── Background (price panel only): flow regime + graded depth ────────────
     br_sm = d['breadth'].resample('W-SUN').mean().rolling(SHADE_SMOOTH_WK, min_periods=1).mean()
     for end, v in d['roll']['total'].items():
-        c = flow_shade(v, br_sm.get(end, np.nan))
+        c = flow_shade(v, br_sm.get(end, np.nan), cfg['full_in'], cfg['full_out'])
         if c:
             fig.add_vrect(x0=end - pd.Timedelta(days=7), x1=end, fillcolor=c,
                           line_width=0, layer='below', row=1, col=1)
@@ -254,7 +299,7 @@ def plot_btc_etf_flows(d):
         x=wk.index, open=wk['open'], high=wk['high'], low=wk['low'], close=wk['close'],
         increasing=dict(line=dict(color=GREEN, width=1), fillcolor=GREEN),
         decreasing=dict(line=dict(color=RED_DEEP, width=1), fillcolor=RED_DEEP),
-        whiskerwidth=0, name='BTC Price (weekly)', text=hover_txt, hoverinfo='text'),
+        whiskerwidth=0, name=f'{A} Price (weekly)', text=hover_txt, hoverinfo='text'),
         row=1, col=1)
 
     # ETF holders' average cost basis
@@ -265,33 +310,34 @@ def plot_btc_etf_flows(d):
         customdata=np.c_[cb_hov],
         hovertemplate='%{customdata[0]} · ETF cost basis $%{y:,.0f}<extra></extra>'), row=1, col=1)
     fig.add_annotation(x=cb.index[-1], y=np.log10(cb.iloc[-1]), xref='x', yref='y',
-                       text=f'<b>${cb.iloc[-1]/1e3:,.1f}k</b>', showarrow=False, xanchor='left',
+                       text=(f'<b>${cb.iloc[-1]/1e3:,.1f}k</b>' if cb.iloc[-1] >= 1e4
+                             else f'<b>${cb.iloc[-1]:,.0f}</b>'), showarrow=False, xanchor='left',
                        xshift=6, font=dict(color=GOLD, size=12))
 
     # Swing high / low labels, like the reference chart
-    for dt, v, kind in pivots(wk):
+    for dt, v, kind in pivots(wk, cfg.get('swing', PIVOT_SWING)):
         if dt == wk.index[0]:
             continue
         fig.add_annotation(x=dt, y=np.log10(v), xref='x', yref='y',
-                           text=f'${v/1e3:,.0f}k' if v >= 1e4 else f'${v:,.0f}',
+                           text=price_label(v),
                            showarrow=False, yshift=12 if kind == 'high' else -12,
                            font=dict(color=TEXT_2, size=12))
 
     # ── Row 2: 13-week rolling net flows ──────────────────────────────────────
     hov = [(f'13 wks to ' if i >= ROLL_WEEKS - 1 else 'Since launch to ') + f'{dt:%b} {dt.day}, {dt.year}'
            for i, dt in enumerate(roll.index)]
-    for col, name, color in (('ibit', 'IBIT (BlackRock) 13-wk flow', IBIT_COLOR),
+    for col, name, color in (('lead', f'{cfg["lead"]} 13-wk flow', IBIT_COLOR),
                              ('other', 'All other ETFs 13-wk flow', OTHER_COLOR)):
         fig.add_trace(go.Bar(
             x=roll.index, y=roll[col], name=name, marker=dict(color=color, opacity=0.85),
             customdata=np.c_[hov, roll_btc[col] / 1e3],
             hovertemplate='%{customdata[0]} · ' + name.split(' 13')[0]
-                          + ' $%{y:,.1f}B (%{customdata[1]:+,.1f}k BTC)<extra></extra>'),
+                          + f' $%{{y:,.1f}}B (%{{customdata[1]:+,.1f}}k {U})<extra></extra>'),
             row=2, col=1)
     fig.add_trace(go.Scatter(
         x=roll.index, y=roll['total'], name='Net ETF Flow (13-wk)',
         line=dict(color=NET_COLOR, width=1.6), customdata=np.c_[hov, roll_btc['total'] / 1e3],
-        hovertemplate='%{customdata[0]} · Net $%{y:,.1f}B (%{customdata[1]:+,.1f}k BTC)<extra></extra>'),
+        hovertemplate=f'%{{customdata[0]}} · Net $%{{y:,.1f}}B (%{{customdata[1]:+,.1f}}k {U})<extra></extra>'),
         row=2, col=1)
     fig.add_hline(y=0, line=dict(color=TEXT_3, width=1, dash='dot'), row=2, col=1)
 
@@ -304,9 +350,9 @@ def plot_btc_etf_flows(d):
 
     apply_theme(fig)
     fig.update_layout(barmode='relative', bargap=0.08, xaxis_rangeslider_visible=False)
-    ticks = [10_000, 15_000, 20_000, 30_000, 50_000, 70_000, 100_000, 150_000, 200_000, 300_000]
-    fig.update_yaxes(type='log', title_text='BTC (log)', tickvals=ticks,
-                     ticktext=[f'${t // 1000:,}k' for t in ticks], row=1, col=1)
+    ticks = cfg['ticks']
+    fig.update_yaxes(type='log', title_text=f'{A} (log)', tickvals=ticks,
+                     ticktext=[price_label(t) for t in ticks], row=1, col=1)
     fig.update_yaxes(title_text='13-wk net flow ($B)', tickprefix='$', ticksuffix='B',
                      tickformat=',.0f', row=2, col=1)
     fig.update_xaxes(range=[wk.index[0] - pd.Timedelta(days=7),
@@ -322,8 +368,8 @@ def plot_btc_etf_flows(d):
     cb_now = d['cost_basis'].dropna().iloc[-1]
     gap = (last_px / cb_now - 1) * 100
     gap_txt = f'price {abs(gap):.0f}% {"below" if gap < 0 else "above"}'
-    subtitle = (f'BTC ${last_px:,.0f} · ETF cost basis ${cb_now:,.0f} ({gap_txt}) · 13-wk net ETF flow {usd_b(r["total"])} '
-                f'= {btc_k(rb["total"])} · Flow breadth {br:.0%} '
+    subtitle = (f'{A} ${last_px:,.0f} · ETF cost basis ${cb_now:,.0f} ({gap_txt}) · 13-wk net ETF flow {usd_b(r["total"])} '
+                f'= {units_k(rb["total"], U)} · Flow breadth {br:.0%} '
                 f'({n_in}/{BREADTH_DAYS} days inflows) · {state} · '
                 f'Flows to {date_long(d["flows"].index[-1])}')
     return fig, subtitle
