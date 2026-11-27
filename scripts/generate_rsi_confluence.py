@@ -1,6 +1,6 @@
 """
 generate_rsi_confluence.py
-Alphaline Research — RSI Confluence: past dates where Daily, Weekly, Monthly and
+Alphaline Research — RSI Bottom Confluence: past dates where Daily, Weekly, Monthly and
 Annual RSI were all in the washout zone together, for BTC, ETH and MSTR.
 
 Match rule (distance to the zone, each leg scaled by how far it naturally moves):
@@ -353,7 +353,7 @@ def subtitle_for(d, dist, eps, label):
 # ════════════════════════════════════════════
 if __name__ == '__main__':
     os.makedirs(OUT_DIR, exist_ok=True)
-    print('=== Building RSI Confluence Charts ===')
+    print('=== Building RSI Bottom Confluence Charts ===')
 
     def note_for(setup):
         zone = ' · '.join(f'{c} {setup[c]:g} ±{SCALE[c]}' for c in LEGS)
@@ -376,7 +376,7 @@ if __name__ == '__main__':
                 + f'  low {e.low:.0f}%')
 
         fig = plot_confluence(d, dist, eps, current, label, color, setup)
-        title = f'{label} RSI Confluence' + (' (since BTC treasury, Aug 2020)' if since else '')
+        title = f'{label} RSI Bottom Confluence' + (' (since BTC treasury, Aug 2020)' if since else '')
         source_txt = 'CoinMetrics' if source == 'coinmetrics' else 'Yahoo Finance'
         path = os.path.join(OUT_DIR, f'{label.lower()}_rsi_confluence.html')
         write_chart(fig, path, title=title, subtitle=subtitle_for(d, dist, eps, label),
