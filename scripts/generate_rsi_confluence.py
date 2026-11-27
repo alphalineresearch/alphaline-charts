@@ -135,8 +135,21 @@ def fetch_coinmetrics(asset: str) -> pd.Series:
     s = pd.Series({pd.Timestamp(r['time'][:10]): float(r['PriceUSD']) for r in rows if r.get('PriceUSD')})
     return s.sort_index()
 
+def fetch_yahoo_chart(ticker: str) -> pd.Series:
+    """Yahoo chart API directly — fallback when yfinance returns nothing."""
+    r = requests.get(f'https://query2.finance.yahoo.com/v8/finance/chart/{ticker}'
+                     '?period1=0&period2=9999999999&interval=1d&events=split,div',
+                     headers={'User-Agent': 'Mozilla/5.0'}, timeout=60)
+    r.raise_for_status()
+    res = r.json()['chart']['result'][0]
+    adj = res['indicators']['adjclose'][0]['adjclose']
+    idx = pd.to_datetime(res['timestamp'], unit='s').normalize()
+    return pd.Series(adj, index=idx, dtype=float).dropna().groupby(level=0).last()
+
 def fetch_yahoo(ticker: str) -> pd.Series:
     df = yf.download(ticker, period='max', interval='1d', auto_adjust=True, progress=False)
+    if df.empty:
+        return fetch_yahoo_chart(ticker)
     if isinstance(df.columns, pd.MultiIndex):
         df.columns = [c[0].lower() for c in df.columns]
     else:

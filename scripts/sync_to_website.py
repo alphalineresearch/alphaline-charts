@@ -32,6 +32,9 @@ CHARTS = [
     "btc_rsi_confluence.html",
     "eth_rsi_confluence.html",
     "mstr_rsi_confluence.html",
+    "btc_rsi_top_confluence.html",
+    "eth_rsi_top_confluence.html",
+    "mstr_rsi_top_confluence.html",
 ]
 
 copied = 0
