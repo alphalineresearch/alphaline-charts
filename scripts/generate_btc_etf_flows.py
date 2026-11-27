@@ -356,7 +356,7 @@ def plot_etf_flows(d, cfg):
     fig.update_yaxes(title_text='13-wk net flow ($B)', tickprefix='$', ticksuffix='B',
                      tickformat=',.0f', row=2, col=1)
     fig.update_xaxes(range=[wk.index[0] - pd.Timedelta(days=7),
-                            wk.index[-1] + pd.Timedelta(days=35)])
+                            wk.index[-1] + pd.Timedelta(days=70)])   # room for the cost-basis label
 
     # Reading for the header
     last_px = d['px']['close'].iloc[-1]
