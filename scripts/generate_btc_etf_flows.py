@@ -5,14 +5,16 @@ Alphaline Research — BTC Spot ETF Flows: are investors moving into or out of b
 Modelled on the "price + 13-week fund flows + breadth shading" layout.
 
 Panels:
-  1. BTC weekly candles (log) around its long-run power-law trend (gold line, ±1σ glow).
+  1. BTC weekly candles (log) with swing high / low labels.
   2. 13-week rolling net flows into US spot bitcoin ETFs, $B, stacked IBIT vs. all
      other ETFs, with the total as a white line. Net flow = creations − redemptions:
      the change in BTC the funds hold, valued at that day's BTC price.
 
-Background shading = flow breadth: the share of the past 20 trading days with net
-inflows. Green when most days see buying (broad accumulation), red when most see
-selling (broad redemptions), clear near 50%.
+Price-panel shading: colour = sign of the 13-week net flow (green inflows, red
+outflows). Depth = 60% size of the flow (full green at +$12B, full red at −$6B) +
+40% breadth agreeing with it (share of days in the same direction, 4-week average).
+
+Header also reports flow breadth: the share of the past 20 trading days with net inflows.
 
 Data sources (no API keys required):
   - bitbo.io (BitcoinTreasuries) ETF flow page: daily net BTC flows, total and by issuer
@@ -53,11 +55,15 @@ except AttributeError:
 OUTPUT_PATH = os.path.join('docs', 'btc_etf_flows.html')
 
 FLOWS_URL    = 'https://bitbo.io/treasuries/etf-flows/'
-PRICE_START  = '2023-01-01'      # a year of price before the ETFs launch (Jan 2024)
-GENESIS      = pd.Timestamp('2009-01-03')
-FIT_START    = '2014-09-17'      # Yahoo's BTC-USD history
+FIT_START    = '2023-12-01'      # price history pulled; the chart starts at the ETF launch
 ROLL_WEEKS   = 13
+CB_MIN_BTC   = 50_000           # cost basis drawn once the ETFs hold this much net BTC
 BREADTH_DAYS = 20                # trading days in the breadth window
+SHADE_FULL_IN   = 12.0           # $B of 13-wk inflows for full-strength green
+SHADE_FULL_OUT  = 6.0            # $B of 13-wk outflows for full-strength red
+SHADE_BASE_ALPHA = 0.07          # every week: regime tint
+SHADE_MAX_ALPHA  = 0.25          # added on top at full depth
+SHADE_SMOOTH_WK  = 4             # weeks the breadth is averaged over for the depth
 PIVOT_SWING  = 0.25              # 25% move between labelled highs and lows
 
 IBIT_COLOR   = GOLD
@@ -149,15 +155,6 @@ def fetch_btc():
 # ════════════════════════════════════════════
 # BUILD
 # ════════════════════════════════════════════
-def power_law(close):
-    """log10(price) = a + b·log10(days since genesis), fit on all daily closes."""
-    days = (close.index - GENESIS).days.values.astype(float)
-    x, y = np.log10(days), np.log10(close.values)
-    b, a = np.polyfit(x, y, 1)
-    resid_sd = float(np.std(y - (a + b * x)))
-    return a, b, resid_sd
-
-
 def pivots(wk, swing=PIVOT_SWING):
     """Alternating weekly highs/lows that are at least `swing` apart (zigzag)."""
     out, mode = [], None
@@ -185,76 +182,73 @@ def build_dataframe():
     usd = flows.mul(close, axis=0) / 1e9                         # $B
 
     # Weekly candles (crypto week ends Sunday)
-    wk = px[px.index >= PRICE_START].resample('W-SUN').agg(
+    launch = flows.index.min()
+    wk = px[px.index >= launch].resample('W-SUN').agg(
         {'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last'}).dropna()
 
     # 13-week rolling flows, on the same weekly grid
     usd_w = usd.resample('W-SUN').sum()
     btc_w = flows.resample('W-SUN').sum()
-    roll = usd_w.rolling(ROLL_WEEKS, min_periods=ROLL_WEEKS).sum()
-    roll_btc = btc_w.rolling(ROLL_WEEKS, min_periods=ROLL_WEEKS).sum()
+    roll = usd_w.rolling(ROLL_WEEKS, min_periods=1).sum()     # first 12 weeks: since launch
+    roll_btc = btc_w.rolling(ROLL_WEEKS, min_periods=1).sum()
 
     # Flow breadth: share of the last 20 trading days with net inflows
     breadth = (flows['total'] > 0).astype(float).rolling(BREADTH_DAYS).mean()
     breadth_w = breadth.resample('W-SUN').last()
 
-    a, b, sd = power_law(px['close'])
-    days = (wk.index - GENESIS).days.values.astype(float)
-    trend = pd.Series(10 ** (a + b * np.log10(days)), index=wk.index)
+    # ETF cost basis: cumulative net dollars in ÷ cumulative net BTC held
+    cost_basis = (usd['total'].cumsum() * 1e9 / flows['total'].cumsum()).where(flows['total'].cumsum() >= CB_MIN_BTC)
+    cost_basis[cost_basis.notna().cummax() == False] = np.nan   # start once, don't flicker
+    cost_basis_w = cost_basis.resample('W-SUN').last()
 
-    return dict(px=px, wk=wk, trend=trend, sd=sd, roll=roll, roll_btc=roll_btc,
+    return dict(px=px, wk=wk, roll=roll, roll_btc=roll_btc, cost_basis=cost_basis, cost_basis_w=cost_basis_w,
                 breadth=breadth, breadth_w=breadth_w, flows=flows, usd=usd)
 
 
 # ════════════════════════════════════════════
 # CHART
 # ════════════════════════════════════════════
-def _breadth_color(v):
-    """0 → red, 0.5 → clear, 1 → green; strength grows away from 50%."""
-    strength = min(abs(v - 0.5) * 2, 1.0)
-    if strength < 0.15:
+def flow_shade(v, br):
+    """Colour for one week. Hue from the 13-week net flow ($B): green for inflows, red
+    for outflows. Every week gets a base tint so regimes read as blocks; depth on top of
+    that blends how big the flow is with how broad it is (flow breadth agreeing with the
+    direction: share of days with inflows for green, with outflows for red)."""
+    if pd.isna(v):
         return None
-    base = GREEN if v > 0.5 else RED_DEEP
-    return hex_to_rgba(base, round(0.08 + 0.24 * strength, 3))
+    inflow = v > 0
+    size = min(abs(v) / (SHADE_FULL_IN if inflow else SHADE_FULL_OUT), 1.0)
+    if pd.isna(br):
+        agree = 0.5
+    else:
+        agree = br if inflow else 1 - br
+    agree = min(max((agree - 0.3) / 0.5, 0.0), 1.0)    # 30% → none, 80%+ → full
+    depth = (0.6 * size + 0.4 * agree) ** 0.8
+    return hex_to_rgba(GREEN if inflow else RED_DEEP,
+                       round(SHADE_BASE_ALPHA + SHADE_MAX_ALPHA * depth, 3))
 
 
 def plot_btc_etf_flows(d):
-    wk, trend, sd = d['wk'], d['trend'], d['sd']
+    wk = d['wk']
     roll, roll_btc = d['roll'].dropna(), d['roll_btc'].dropna()
 
     fig = make_subplots(rows=2, cols=1, shared_xaxes=True,
                         row_heights=[0.62, 0.38], vertical_spacing=0.04)
 
-    # ── Background: flow breadth, one band per week ───────────────────────────
-    bw = d['breadth_w'].dropna()
-    for end, v in bw.items():
-        c = _breadth_color(v)
+    # ── Background (price panel only): flow regime + graded depth ────────────
+    br_sm = d['breadth'].resample('W-SUN').mean().rolling(SHADE_SMOOTH_WK, min_periods=1).mean()
+    for end, v in d['roll']['total'].items():
+        c = flow_shade(v, br_sm.get(end, np.nan))
         if c:
             fig.add_vrect(x0=end - pd.Timedelta(days=7), x1=end, fillcolor=c,
-                          line_width=0, layer='below', row='all', col=1)
+                          line_width=0, layer='below', row=1, col=1)
 
-    # ── Row 1: trend glow, trend line, weekly candles ─────────────────────────
-    for k, alpha in ((1.0, 0.07), (0.5, 0.10)):
-        up, dn = trend * 10 ** (k * sd), trend * 10 ** (-k * sd)
-        fig.add_trace(go.Scatter(
-            x=list(trend.index) + list(trend.index[::-1]),
-            y=list(up) + list(dn[::-1]),
-            fill='toself', fillcolor=hex_to_rgba(GOLD, alpha), line=dict(width=0),
-            hoverinfo='skip', showlegend=k == 1.0, legendgroup='trend', meta='nofit',
-            name='Power-law trend ±1σ'), row=1, col=1)
-    fig.add_trace(go.Scatter(
-        x=trend.index, y=trend, line=dict(color=GOLD_DIM, width=1.2, dash='dot'),
-        name='Power-law trend', legendgroup='trend', showlegend=False, meta='nofit',
-        hovertemplate='%{x|%b %-d, %Y} · Trend $%{y:,.0f}<extra></extra>'), row=1, col=1)
-
+    # ── Row 1: weekly candles ──────────────────────────────────────────────────
     chg = wk['close'].pct_change() * 100
     hover_txt = [
         f'Week to {dt:%b} {dt.day}, {dt.year}<br>O ${o:,.0f}<br>H ${h:,.0f}<br>L ${l:,.0f}<br>C ${c:,.0f}'
         + (f'<br>Week {"(" + format(abs(p), ".1f") + "%)" if p < 0 else "+" + format(p, ".1f") + "%"}'
            if pd.notna(p) else '')
-        + f'<br>vs. trend {"(" + format(abs(r), ".0f") + "%)" if r < 0 else "+" + format(r, ".0f") + "%"}'
-        for dt, o, h, l, c, p, r in zip(wk.index, wk['open'], wk['high'], wk['low'], wk['close'],
-                                        chg, (wk['close'] / trend - 1) * 100)
+        for dt, o, h, l, c, p in zip(wk.index, wk['open'], wk['high'], wk['low'], wk['close'], chg)
     ]
     fig.add_trace(go.Candlestick(
         x=wk.index, open=wk['open'], high=wk['high'], low=wk['low'], close=wk['close'],
@@ -262,6 +256,17 @@ def plot_btc_etf_flows(d):
         decreasing=dict(line=dict(color=RED_DEEP, width=1), fillcolor=RED_DEEP),
         whiskerwidth=0, name='BTC Price (weekly)', text=hover_txt, hoverinfo='text'),
         row=1, col=1)
+
+    # ETF holders' average cost basis
+    cb = d['cost_basis_w'].dropna()
+    cb_hov = [f'{dt:%b} {dt.day}, {dt.year}' for dt in cb.index]
+    fig.add_trace(go.Scatter(
+        x=cb.index, y=cb, name='ETF Cost Basis', line=dict(color=GOLD, width=2),
+        customdata=np.c_[cb_hov],
+        hovertemplate='%{customdata[0]} · ETF cost basis $%{y:,.0f}<extra></extra>'), row=1, col=1)
+    fig.add_annotation(x=cb.index[-1], y=np.log10(cb.iloc[-1]), xref='x', yref='y',
+                       text=f'<b>${cb.iloc[-1]/1e3:,.1f}k</b>', showarrow=False, xanchor='left',
+                       xshift=6, font=dict(color=GOLD, size=12))
 
     # Swing high / low labels, like the reference chart
     for dt, v, kind in pivots(wk):
@@ -273,7 +278,8 @@ def plot_btc_etf_flows(d):
                            font=dict(color=TEXT_2, size=12))
 
     # ── Row 2: 13-week rolling net flows ──────────────────────────────────────
-    hov = [f'13 wks to {dt:%b} {dt.day}, {dt.year}' for dt in roll.index]
+    hov = [(f'13 wks to ' if i >= ROLL_WEEKS - 1 else 'Since launch to ') + f'{dt:%b} {dt.day}, {dt.year}'
+           for i, dt in enumerate(roll.index)]
     for col, name, color in (('ibit', 'IBIT (BlackRock) 13-wk flow', IBIT_COLOR),
                              ('other', 'All other ETFs 13-wk flow', OTHER_COLOR)):
         fig.add_trace(go.Bar(
@@ -290,8 +296,8 @@ def plot_btc_etf_flows(d):
     fig.add_hline(y=0, line=dict(color=TEXT_3, width=1, dash='dot'), row=2, col=1)
 
     # Legend-only keys for the background shading
-    for name, c in (('Flow breadth: most days inflows', GREEN),
-                    ('Flow breadth: most days outflows', RED_DEEP)):
+    for name, c in (('13-wk net inflows', GREEN),
+                    ('13-wk net outflows', RED_DEEP)):
         fig.add_trace(go.Scatter(x=[None], y=[None], mode='markers', name=name,
                                  marker=dict(symbol='square', size=12, color=hex_to_rgba(c, 0.45))),
                       row=1, col=1)
@@ -313,7 +319,10 @@ def plot_btc_etf_flows(d):
     n_in = int(round(br * BREADTH_DAYS))
     state = ('Investors adding' if r['total'] > 0 and br >= 0.5 else
              'Investors leaving' if r['total'] < 0 and br < 0.5 else 'Mixed')
-    subtitle = (f'BTC ${last_px:,.0f} · 13-wk net ETF flow {usd_b(r["total"])} '
+    cb_now = d['cost_basis'].dropna().iloc[-1]
+    gap = (last_px / cb_now - 1) * 100
+    gap_txt = f'price {abs(gap):.0f}% {"below" if gap < 0 else "above"}'
+    subtitle = (f'BTC ${last_px:,.0f} · ETF cost basis ${cb_now:,.0f} ({gap_txt}) · 13-wk net ETF flow {usd_b(r["total"])} '
                 f'= {btc_k(rb["total"])} · Flow breadth {br:.0%} '
                 f'({n_in}/{BREADTH_DAYS} days inflows) · {state} · '
                 f'Flows to {date_long(d["flows"].index[-1])}')
@@ -331,10 +340,12 @@ if __name__ == '__main__':
     write_chart(fig, OUTPUT_PATH,
                 title='BTC Spot ETF Flows',
                 subtitle=subtitle,
-                note='Bars: 13-week rolling net creations − redemptions in US spot bitcoin ETFs, '
+                note='Bars: 13-week rolling net creations − redemptions in US spot bitcoin ETFs (since-launch total until Apr 2024), '
                      'each day\'s BTC flow valued at that day\'s price. '
-                     'Shading: flow breadth, the share of the past 20 trading days with net inflows. '
-                     'Gold band: BTC power-law trend ±1σ.',
+                     'Shading: green while 13-week net flow is positive, red when negative; '
+                     'deeper when the flow is both large and broad (most days in the same direction). '
+                     'Flow breadth: share of the past 20 trading days with net inflows. '
+                     'Gold line: ETF cost basis, cumulative net dollars in ÷ cumulative net BTC held (flows since launch).',
                 source='bitbo.io (BitcoinTreasuries) · Yahoo Finance',
                 default='All', min_plot_height=520)
     print(f'Saved: {OUTPUT_PATH}')

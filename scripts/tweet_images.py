@@ -178,7 +178,7 @@ def build(spec):
         t.visible = True if k else False
         t.showlegend = False
         t.hoverinfo = 'skip'
-        if k and t.line is not None and t.line.width and t.mode and 'lines' in t.mode:
+        if k and getattr(t, 'line', None) is not None and t.line.width and getattr(t, 'mode', None) and 'lines' in t.mode:
             t.line.width = max(t.line.width * 1.6, F['line'] * (0.5 if (t.opacity or 1) < 1 else 1))
 
     # ── panels: drop the ones with nothing left, close the gap ──
@@ -274,8 +274,12 @@ def build(spec):
         if key in seen:
             continue
         seen.add(key)
-        fill = t.fill not in (None, 'none')
-        if fill or (t.mode and 'lines' not in t.mode):
+        if t.type == 'candlestick':
+            legend.append(('box', t.increasing.line.color or TEXT_3, key))
+            continue
+        fill = getattr(t, 'fill', None) not in (None, 'none')
+        mode = getattr(t, 'mode', None)
+        if t.type == 'bar' or fill or (mode and 'lines' not in mode):
             c = t.fillcolor if fill else (t.marker.color if t.marker else None)
             # lift faint fills so the key reads against the dark page
             rgb = _rgb(c) or (143, 162, 178)
