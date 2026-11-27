@@ -6,8 +6,7 @@ Panels:
   1. BTC price (log) with the time-capitulation zones shaded: long sideways stretches
      after a crash where nothing happens and holders give up from boredom rather than
      losses. Each finished zone has a dotted line at its exit price, carried to today;
-     the hover gives the share of days since then that BTC closed below it. Gold dots
-     mark BTC's 20 best days (Yahoo era, Sep 2014 on).
+     the hover gives the share of days since then that BTC closed below it.
   2. Time Pain Index: the share of the past 2 years on which BTC traded within ±35% of
      today's price. High = two years of going nowhere.
 
@@ -35,7 +34,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 from alphaline_theme import (apply_theme, write_chart, hover, date_long, pct,
-                             NAVY_MID, STEEL, GOLD, GOLD_LIT, WHITE, TEXT_2, TEXT_3, GREEN)
+                             GOLD, WHITE, TEXT_2, TEXT_3, GREEN)
 from generate_trend_charts import fetch_btc, hex_to_rgba
 
 warnings.filterwarnings('ignore')
@@ -60,7 +59,7 @@ ZONES = [
 PAIN_WINDOW = 730            # days looked back
 PAIN_BAND   = 0.35           # ±35% of today's price counts as "the same place"
 PAIN_MA     = 90             # days: smoothing for the index's main line
-BEST_N      = 20             # best days marked on the price
+BEST_N      = 20             # best days counted in the console stats
 BEST_FROM   = '2014-09-17'   # Yahoo era: the best-days stats start here
 CHART_FROM  = '2014-01-01'
 
@@ -111,7 +110,7 @@ def best_days(px):
 # ════════════════════════════════════════════
 # CHART
 # ════════════════════════════════════════════
-def plot(px, pain, zones, top):
+def plot(px, pain, zones):
     fig = make_subplots(rows=2, cols=1, shared_xaxes=True,
                         row_heights=[0.70, 0.30], vertical_spacing=0.03)
     view = px[CHART_FROM:]
@@ -146,15 +145,6 @@ def plot(px, pain, zones, top):
     fig.add_trace(go.Scatter(
         x=view.index, y=view.values, mode='lines', name='BTC Price',
         line=dict(color=GOLD, width=1.6), hovertemplate=hover('BTC', '$%{y:,.0f}')), row=1, col=1)
-
-    # ── best days ──
-    rank = np.arange(1, len(top) + 1)
-    fig.add_trace(go.Scatter(
-        x=top.index, y=px.reindex(top.index).values, mode='markers',
-        name=f'{BEST_N} best days', customdata=np.column_stack([rank, top.values * 100]),
-        marker=dict(color=GOLD_LIT, size=8, line=dict(color=NAVY_MID, width=1.5)),
-        hovertemplate=hover('Best day #%{customdata[0]}', '+%{customdata[1]:.1f}%',
-                            ' · BTC $%{y:,.0f}')), row=1, col=1)
 
     # legend key for the shading
     fig.add_trace(go.Scatter(
@@ -222,10 +212,9 @@ if __name__ == '__main__':
             'Shaded: the long sideways stretches after each crash; dotted lines carry each exit price '
             'forward — BTC has rarely closed back below one. '
             f'Since Sep 2014 BTC is up {growth[0]:.0f}×; miss its 10 best days and it is '
-            f'{growth[10]:.0f}×, miss 20 and it is {growth[20]:.1f}×. '
-            f'{in_zone} of those 20 days came inside the flat zones.')
+            f'{growth[10]:.0f}×, miss 20 and it is {growth[20]:.1f}×.')
 
-    fig = plot(px, pain, zones, top)
+    fig = plot(px, pain, zones)
     write_chart(fig, OUTPUT, title='BTC Max Pain for Time', subtitle=sub, note=note,
                 source='blockchain.info · Yahoo Finance', default='All', min_plot_height=480)
     print(f'  Saved: {OUTPUT}')
