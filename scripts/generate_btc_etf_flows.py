@@ -1,0 +1,340 @@
+"""
+generate_btc_etf_flows.py
+Alphaline Research — BTC Spot ETF Flows: are investors moving into or out of bitcoin?
+
+Modelled on the "price + 13-week fund flows + breadth shading" layout.
+
+Panels:
+  1. BTC weekly candles (log) around its long-run power-law trend (gold line, ±1σ glow).
+  2. 13-week rolling net flows into US spot bitcoin ETFs, $B, stacked IBIT vs. all
+     other ETFs, with the total as a white line. Net flow = creations − redemptions:
+     the change in BTC the funds hold, valued at that day's BTC price.
+
+Background shading = flow breadth: the share of the past 20 trading days with net
+inflows. Green when most days see buying (broad accumulation), red when most see
+selling (broad redemptions), clear near 50%.
+
+Data sources (no API keys required):
+  - bitbo.io (BitcoinTreasuries) ETF flow page: daily net BTC flows, total and by issuer
+  - Yahoo Finance: BTC-USD daily OHLC (via yfinance)
+
+Writes:
+  docs/btc_etf_flows.html
+
+Usage:
+    python scripts/generate_btc_etf_flows.py
+"""
+
+import os
+import re
+import sys
+import time
+import warnings
+
+import numpy as np
+import pandas as pd
+import plotly.graph_objects as go
+import requests
+import yfinance as yf
+from plotly.subplots import make_subplots
+
+from alphaline_theme import (apply_theme, write_chart, date_long, NAVY_MID, STEEL,
+                             GOLD, GOLD_DIM, WHITE, TEXT_2, TEXT_3, GREEN, RED, RED_DEEP)
+
+warnings.filterwarnings('ignore')
+try:
+    sys.stdout.reconfigure(encoding='utf-8')
+except AttributeError:
+    pass
+
+# ════════════════════════════════════════════
+# CONFIG
+# ════════════════════════════════════════════
+OUTPUT_PATH = os.path.join('docs', 'btc_etf_flows.html')
+
+FLOWS_URL    = 'https://bitbo.io/treasuries/etf-flows/'
+PRICE_START  = '2023-01-01'      # a year of price before the ETFs launch (Jan 2024)
+GENESIS      = pd.Timestamp('2009-01-03')
+FIT_START    = '2014-09-17'      # Yahoo's BTC-USD history
+ROLL_WEEKS   = 13
+BREADTH_DAYS = 20                # trading days in the breadth window
+PIVOT_SWING  = 0.25              # 25% move between labelled highs and lows
+
+IBIT_COLOR   = GOLD
+OTHER_COLOR  = '#6F8FB8'         # muted steel-blue: the rest of the field
+NET_COLOR    = WHITE
+
+UA = ('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
+      '(KHTML, like Gecko) Chrome/130.0 Safari/537.36')
+
+
+def hex_to_rgba(h, a=0.35):
+    h = h.lstrip('#')
+    return f'rgba({int(h[0:2],16)},{int(h[2:4],16)},{int(h[4:6],16)},{a})'
+
+
+def usd_b(v, d=1):
+    """$4.2B / ($3.1B) — finance-style negatives."""
+    return f'(${abs(v):,.{d}f}B)' if v < 0 else f'${v:,.{d}f}B'
+
+
+def btc_k(v):
+    return f'({abs(v)/1e3:,.1f}k BTC)' if v < 0 else f'+{v/1e3:,.1f}k BTC'
+
+
+# ════════════════════════════════════════════
+# DATA
+# ════════════════════════════════════════════
+def _get(url, tries=3):
+    for i in range(tries):
+        try:
+            r = requests.get(url, headers={'User-Agent': UA}, timeout=60)
+            r.raise_for_status()
+            return r.text
+        except Exception as e:
+            if i == tries - 1:
+                raise
+            print(f'  retry {i+1}: {e}')
+            time.sleep(3 * (i + 1))
+
+
+_ENTRY = re.compile(r'getPreviousBusinessDay\((\d+)\),\s*truncate\((-?[\d.]+)')
+_ENDS  = ('const merged', 'aum_etf_', 'function ')
+
+
+def _prev_business_day(ts):
+    """The page dates each row by when the holding change was reported; the flow
+    happened the business day before (same rule as the page's own JS)."""
+    dow = ts.dayofweek                       # Mon=0 … Sun=6
+    return ts - pd.Timedelta(days=2 if dow == 6 else 3 if dow == 0 else 1)
+
+
+def _series(page, start_marker):
+    i = page.index(start_marker)
+    ends = [k for k in (page.find(m, i + len(start_marker)) for m in _ENDS) if k > 0]
+    rows = _ENTRY.findall(page[i:min(ends)])
+    if not rows:
+        return pd.Series(dtype=float)
+    d = pd.DataFrame(rows, columns=['ms', 'btc']).astype(float)
+    d['date'] = pd.to_datetime(d['ms'], unit='ms').map(_prev_business_day).dt.normalize()
+    return d.groupby('date')['btc'].sum()
+
+
+def fetch_flows():
+    """Daily net flows in BTC: total of all US spot ETFs and BlackRock's IBIT."""
+    print('  Fetching ETF flows (bitbo.io)...')
+    page = _get(FLOWS_URL)
+    total = _series(page, 'const historyBtc')
+    ibit  = _series(page, 'aum_etf_blackrock')
+    if len(total) < 250:
+        raise RuntimeError(f'only {len(total)} days of ETF flows parsed — page layout changed?')
+    df = pd.DataFrame({'total': total, 'ibit': ibit}).fillna(0.0).sort_index()
+    df['other'] = df['total'] - df['ibit']
+    print(f'    {len(df)} days, {df.index.min():%Y-%m-%d} → {df.index.max():%Y-%m-%d}, '
+          f'net {df["total"].sum():,.0f} BTC')
+    return df
+
+
+def fetch_btc():
+    print('  Fetching BTC-USD (Yahoo)...')
+    px = yf.download('BTC-USD', start=FIT_START, progress=False, auto_adjust=False)
+    if isinstance(px.columns, pd.MultiIndex):
+        px.columns = px.columns.get_level_values(0)
+    px.index = pd.to_datetime(px.index).tz_localize(None).normalize()
+    px = px[['Open', 'High', 'Low', 'Close']].dropna()
+    px.columns = ['open', 'high', 'low', 'close']
+    return px
+
+
+# ════════════════════════════════════════════
+# BUILD
+# ════════════════════════════════════════════
+def power_law(close):
+    """log10(price) = a + b·log10(days since genesis), fit on all daily closes."""
+    days = (close.index - GENESIS).days.values.astype(float)
+    x, y = np.log10(days), np.log10(close.values)
+    b, a = np.polyfit(x, y, 1)
+    resid_sd = float(np.std(y - (a + b * x)))
+    return a, b, resid_sd
+
+
+def pivots(wk, swing=PIVOT_SWING):
+    """Alternating weekly highs/lows that are at least `swing` apart (zigzag)."""
+    out, mode = [], None
+    hi_i, lo_i = wk.index[0], wk.index[0]
+    for d, r in wk.iterrows():
+        if r['high'] > wk.at[hi_i, 'high']:
+            hi_i = d
+        if r['low'] < wk.at[lo_i, 'low']:
+            lo_i = d
+        if mode != 'down' and r['low'] <= wk.at[hi_i, 'high'] * (1 - swing):
+            out.append((hi_i, wk.at[hi_i, 'high'], 'high'))
+            mode, lo_i = 'down', d
+        elif mode != 'up' and r['high'] >= wk.at[lo_i, 'low'] * (1 + swing):
+            out.append((lo_i, wk.at[lo_i, 'low'], 'low'))
+            mode, hi_i = 'up', d
+    return out
+
+
+def build_dataframe():
+    flows = fetch_flows()
+    px = fetch_btc()
+
+    # Value each day's BTC flow at that day's close
+    close = px['close'].reindex(flows.index, method='ffill')
+    usd = flows.mul(close, axis=0) / 1e9                         # $B
+
+    # Weekly candles (crypto week ends Sunday)
+    wk = px[px.index >= PRICE_START].resample('W-SUN').agg(
+        {'open': 'first', 'high': 'max', 'low': 'min', 'close': 'last'}).dropna()
+
+    # 13-week rolling flows, on the same weekly grid
+    usd_w = usd.resample('W-SUN').sum()
+    btc_w = flows.resample('W-SUN').sum()
+    roll = usd_w.rolling(ROLL_WEEKS, min_periods=ROLL_WEEKS).sum()
+    roll_btc = btc_w.rolling(ROLL_WEEKS, min_periods=ROLL_WEEKS).sum()
+
+    # Flow breadth: share of the last 20 trading days with net inflows
+    breadth = (flows['total'] > 0).astype(float).rolling(BREADTH_DAYS).mean()
+    breadth_w = breadth.resample('W-SUN').last()
+
+    a, b, sd = power_law(px['close'])
+    days = (wk.index - GENESIS).days.values.astype(float)
+    trend = pd.Series(10 ** (a + b * np.log10(days)), index=wk.index)
+
+    return dict(px=px, wk=wk, trend=trend, sd=sd, roll=roll, roll_btc=roll_btc,
+                breadth=breadth, breadth_w=breadth_w, flows=flows, usd=usd)
+
+
+# ════════════════════════════════════════════
+# CHART
+# ════════════════════════════════════════════
+def _breadth_color(v):
+    """0 → red, 0.5 → clear, 1 → green; strength grows away from 50%."""
+    strength = min(abs(v - 0.5) * 2, 1.0)
+    if strength < 0.15:
+        return None
+    base = GREEN if v > 0.5 else RED_DEEP
+    return hex_to_rgba(base, round(0.08 + 0.24 * strength, 3))
+
+
+def plot_btc_etf_flows(d):
+    wk, trend, sd = d['wk'], d['trend'], d['sd']
+    roll, roll_btc = d['roll'].dropna(), d['roll_btc'].dropna()
+
+    fig = make_subplots(rows=2, cols=1, shared_xaxes=True,
+                        row_heights=[0.62, 0.38], vertical_spacing=0.04)
+
+    # ── Background: flow breadth, one band per week ───────────────────────────
+    bw = d['breadth_w'].dropna()
+    for end, v in bw.items():
+        c = _breadth_color(v)
+        if c:
+            fig.add_vrect(x0=end - pd.Timedelta(days=7), x1=end, fillcolor=c,
+                          line_width=0, layer='below', row='all', col=1)
+
+    # ── Row 1: trend glow, trend line, weekly candles ─────────────────────────
+    for k, alpha in ((1.0, 0.07), (0.5, 0.10)):
+        up, dn = trend * 10 ** (k * sd), trend * 10 ** (-k * sd)
+        fig.add_trace(go.Scatter(
+            x=list(trend.index) + list(trend.index[::-1]),
+            y=list(up) + list(dn[::-1]),
+            fill='toself', fillcolor=hex_to_rgba(GOLD, alpha), line=dict(width=0),
+            hoverinfo='skip', showlegend=k == 1.0, legendgroup='trend', meta='nofit',
+            name='Power-law trend ±1σ'), row=1, col=1)
+    fig.add_trace(go.Scatter(
+        x=trend.index, y=trend, line=dict(color=GOLD_DIM, width=1.2, dash='dot'),
+        name='Power-law trend', legendgroup='trend', showlegend=False, meta='nofit',
+        hovertemplate='%{x|%b %-d, %Y} · Trend $%{y:,.0f}<extra></extra>'), row=1, col=1)
+
+    chg = wk['close'].pct_change() * 100
+    hover_txt = [
+        f'Week to {dt:%b} {dt.day}, {dt.year}<br>O ${o:,.0f}<br>H ${h:,.0f}<br>L ${l:,.0f}<br>C ${c:,.0f}'
+        + (f'<br>Week {"(" + format(abs(p), ".1f") + "%)" if p < 0 else "+" + format(p, ".1f") + "%"}'
+           if pd.notna(p) else '')
+        + f'<br>vs. trend {"(" + format(abs(r), ".0f") + "%)" if r < 0 else "+" + format(r, ".0f") + "%"}'
+        for dt, o, h, l, c, p, r in zip(wk.index, wk['open'], wk['high'], wk['low'], wk['close'],
+                                        chg, (wk['close'] / trend - 1) * 100)
+    ]
+    fig.add_trace(go.Candlestick(
+        x=wk.index, open=wk['open'], high=wk['high'], low=wk['low'], close=wk['close'],
+        increasing=dict(line=dict(color=GREEN, width=1), fillcolor=GREEN),
+        decreasing=dict(line=dict(color=RED_DEEP, width=1), fillcolor=RED_DEEP),
+        whiskerwidth=0, name='BTC Price (weekly)', text=hover_txt, hoverinfo='text'),
+        row=1, col=1)
+
+    # Swing high / low labels, like the reference chart
+    for dt, v, kind in pivots(wk):
+        if dt == wk.index[0]:
+            continue
+        fig.add_annotation(x=dt, y=np.log10(v), xref='x', yref='y',
+                           text=f'${v/1e3:,.0f}k' if v >= 1e4 else f'${v:,.0f}',
+                           showarrow=False, yshift=12 if kind == 'high' else -12,
+                           font=dict(color=TEXT_2, size=12))
+
+    # ── Row 2: 13-week rolling net flows ──────────────────────────────────────
+    hov = [f'13 wks to {dt:%b} {dt.day}, {dt.year}' for dt in roll.index]
+    for col, name, color in (('ibit', 'IBIT (BlackRock) 13-wk flow', IBIT_COLOR),
+                             ('other', 'All other ETFs 13-wk flow', OTHER_COLOR)):
+        fig.add_trace(go.Bar(
+            x=roll.index, y=roll[col], name=name, marker=dict(color=color, opacity=0.85),
+            customdata=np.c_[hov, roll_btc[col] / 1e3],
+            hovertemplate='%{customdata[0]} · ' + name.split(' 13')[0]
+                          + ' $%{y:,.1f}B (%{customdata[1]:+,.1f}k BTC)<extra></extra>'),
+            row=2, col=1)
+    fig.add_trace(go.Scatter(
+        x=roll.index, y=roll['total'], name='Net ETF Flow (13-wk)',
+        line=dict(color=NET_COLOR, width=1.6), customdata=np.c_[hov, roll_btc['total'] / 1e3],
+        hovertemplate='%{customdata[0]} · Net $%{y:,.1f}B (%{customdata[1]:+,.1f}k BTC)<extra></extra>'),
+        row=2, col=1)
+    fig.add_hline(y=0, line=dict(color=TEXT_3, width=1, dash='dot'), row=2, col=1)
+
+    # Legend-only keys for the background shading
+    for name, c in (('Flow breadth: most days inflows', GREEN),
+                    ('Flow breadth: most days outflows', RED_DEEP)):
+        fig.add_trace(go.Scatter(x=[None], y=[None], mode='markers', name=name,
+                                 marker=dict(symbol='square', size=12, color=hex_to_rgba(c, 0.45))),
+                      row=1, col=1)
+
+    apply_theme(fig)
+    fig.update_layout(barmode='relative', bargap=0.08, xaxis_rangeslider_visible=False)
+    ticks = [10_000, 15_000, 20_000, 30_000, 50_000, 70_000, 100_000, 150_000, 200_000, 300_000]
+    fig.update_yaxes(type='log', title_text='BTC (log)', tickvals=ticks,
+                     ticktext=[f'${t // 1000:,}k' for t in ticks], row=1, col=1)
+    fig.update_yaxes(title_text='13-wk net flow ($B)', tickprefix='$', ticksuffix='B',
+                     tickformat=',.0f', row=2, col=1)
+    fig.update_xaxes(range=[wk.index[0] - pd.Timedelta(days=7),
+                            wk.index[-1] + pd.Timedelta(days=35)])
+
+    # Reading for the header
+    last_px = d['px']['close'].iloc[-1]
+    r, rb = roll.iloc[-1], roll_btc.iloc[-1]
+    br = d['breadth'].dropna().iloc[-1]
+    n_in = int(round(br * BREADTH_DAYS))
+    state = ('Investors adding' if r['total'] > 0 and br >= 0.5 else
+             'Investors leaving' if r['total'] < 0 and br < 0.5 else 'Mixed')
+    subtitle = (f'BTC ${last_px:,.0f} · 13-wk net ETF flow {usd_b(r["total"])} '
+                f'= {btc_k(rb["total"])} · Flow breadth {br:.0%} '
+                f'({n_in}/{BREADTH_DAYS} days inflows) · {state} · '
+                f'Flows to {date_long(d["flows"].index[-1])}')
+    return fig, subtitle
+
+
+# ════════════════════════════════════════════
+# MAIN
+# ════════════════════════════════════════════
+if __name__ == '__main__':
+    os.makedirs('docs', exist_ok=True)
+    print('=== Building BTC ETF Flows ===')
+    data = build_dataframe()
+    fig, subtitle = plot_btc_etf_flows(data)
+    write_chart(fig, OUTPUT_PATH,
+                title='BTC Spot ETF Flows',
+                subtitle=subtitle,
+                note='Bars: 13-week rolling net creations − redemptions in US spot bitcoin ETFs, '
+                     'each day\'s BTC flow valued at that day\'s price. '
+                     'Shading: flow breadth, the share of the past 20 trading days with net inflows. '
+                     'Gold band: BTC power-law trend ±1σ.',
+                source='bitbo.io (BitcoinTreasuries) · Yahoo Finance',
+                default='All', min_plot_height=520)
+    print(f'Saved: {OUTPUT_PATH}')
